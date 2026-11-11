@@ -1,5 +1,7 @@
 """Transparent overlay with optional marker-only mouse interaction."""
 from __future__ import annotations
+import math
+from collections import defaultdict
 from PySide6.QtCore import Qt, Signal, Slot, QRect, QRegion
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
@@ -77,6 +79,12 @@ class Overlay(QWidget):
         if not self.interactive:
             self.clearMask()
             return
+        if len(self.markers) > 5000:
+            # At overview zoom a click target per marker would create a huge
+            # native region. Keep game input safe; zoom in or use the panel.
+            self.clearMask()
+            self.setToolTip("Слишком много меток для режима кликов. Приблизь карту или используй F6.")
+            return
         region = QRegion()
         for marker in self.markers:
             region = region.united(QRegion(self._marker_rect(marker)))
@@ -114,6 +122,29 @@ class Overlay(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         ox, oy = self.detection.get("monitor_origin", (0, 0)) if self.detection else (0, 0)
+
+        if len(self.markers) > 1500:
+            # Cluster the full-world overview instead of drawing tens of
+            # thousands of overlapping text labels.
+            clusters = defaultdict(list)
+            for marker in self.markers:
+                x = marker["screen_x"] + ox - self.geometry().x()
+                y = marker["screen_y"] + oy - self.geometry().y()
+                clusters[(marker["type"], round(x / 12), round(y / 12))].append((x, y))
+            for (category, _gx, _gy), points in clusters.items():
+                x = round(sum(p[0] for p in points) / len(points))
+                y = round(sum(p[1] for p in points) / len(points))
+                color = QColor(*marker_color(category))
+                radius = min(9, 3 + int(math.sqrt(len(points))))
+                painter.setPen(QPen(color, 1))
+                painter.setBrush(color)
+                painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
+                if len(points) >= 5:
+                    painter.setPen(QColor(255, 255, 255))
+                    painter.setFont(QFont("Arial", 8))
+                    painter.drawText(x + radius, y, str(len(points)))
+            return
+
         for marker in self.markers:
             color = marker_color(marker["type"])
             x = round(marker["screen_x"] + ox - self.geometry().x())
