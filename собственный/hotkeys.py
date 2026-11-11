@@ -6,13 +6,15 @@ from pynput import keyboard
 class HotkeyBridge(QObject):
     toggle_overlay = Signal()
     toggle_panel = Signal()
+    toggle_interaction = Signal()
 
 
 class HotkeyListener:
-    def __init__(self, overlay_callback, panel_callback) -> None:
+    def __init__(self, overlay_callback, panel_callback, interaction_callback) -> None:
         self.bridge = HotkeyBridge()
         self.bridge.toggle_overlay.connect(overlay_callback)
         self.bridge.toggle_panel.connect(panel_callback)
+        self.bridge.toggle_interaction.connect(interaction_callback)
         self.listener = None
 
     def on_press(self, key) -> None:
@@ -24,6 +26,8 @@ class HotkeyListener:
             pass
         if key == keyboard.Key.f6:
             self.bridge.toggle_panel.emit()
+        elif key == keyboard.Key.f7:
+            self.bridge.toggle_interaction.emit()
 
     def start(self) -> None:
         if self.listener is None:
