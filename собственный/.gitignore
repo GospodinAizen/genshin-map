@@ -9,3 +9,5 @@ venv/
 data/*.db
 data/*.sqlite*
 !data/.gitkeep
+
+# Downloaded HoYoLAB snapshot cache is kept outside the repository by default
