@@ -74,7 +74,9 @@ class ControlPanel(QDialog):
         tile_id = detection["tile_id"]
         markers = [m for m in self.database.get_markers() if m["tile_id"] == tile_id]
         found = self.database.get_found_ids()
-        self.status_label.setText(f"Участок: {tile_id} · объектов: {len(markers)}")
+        shown = min(len(markers), 1000)
+        suffix = f" · показаны первые {shown}" if len(markers) > shown else ""
+        self.status_label.setText(f"Участок: {tile_id} · объектов: {len(markers)}{suffix}")
 
         # Keep selection and scroll position; refresh only on tile/progress changes.
         if tile_id == self._tile_id and found == self._found_snapshot:
@@ -82,7 +84,7 @@ class ControlPanel(QDialog):
 
         self._loading = True
         self.marker_list.clear()
-        for marker in markers:
+        for marker in markers[:1000]:
             item = QListWidgetItem(f'{marker["name"]}  [{marker["type"]}]')
             item.setData(Qt.ItemDataRole.UserRole, marker["id"])
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
