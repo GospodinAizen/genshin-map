@@ -2,8 +2,8 @@
 from __future__ import annotations
 import math
 from collections import defaultdict
-from PySide6.QtCore import Qt, Signal, Slot, QRect, QRegion
-from PySide6.QtGui import QColor, QFont, QPainter, QPen
+from PySide6.QtCore import Qt, Signal, Slot, QRect
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QRegion
 from PySide6.QtWidgets import QWidget
 from marker_renderer import COLORS, marker_color, prepare_markers
 
