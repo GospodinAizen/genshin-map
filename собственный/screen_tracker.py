@@ -71,7 +71,7 @@ class ScreenTracker:
             if width < frame.shape[1] * 0.12 or height < frame.shape[0] * 0.12:
                 continue
             # A projected tile should not be an extreme sliver or astronomically large.
-            if width > frame.shape[1] * 8 or height > frame.shape[0] * 8:
+            if width > frame.shape[1] * 64 or height > frame.shape[0] * 64:
                 continue
             score = inliers * ratio
             if best is None or score > best["score"]:
