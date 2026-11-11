@@ -1,10 +1,10 @@
 # Genshin Map Overlay
 
-Desktop prototype: recognize the visible game map against local reference tiles and project custom markers into a transparent overlay.
+Desktop overlay foundation for multi-region Genshin maps. It separates map identity/floors from reference tiles and supports independent full-map and minimap localization pipelines.
 
 ## Install and run
 
-Python 3.10+ recommended. Run the following commands from the repository root:
+Python 3.10+ recommended. From the repository root:
 
 ```bash
 cd собственный
@@ -14,35 +14,36 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+The current runnable prototype still uses the legacy single-map entry point:
 1. Copy `references/manifest.example.json` to `references/manifest.json`.
-2. Put your own map crops under `references/tiles/`.
-3. Edit tile IDs, paths and neighbor lists in the manifest.
-4. Edit `marker.json`; x/y are pixel coordinates inside the tile named by tile_id.
+2. Put permitted local reference crops under `references/tiles/`.
+3. Edit tile IDs, paths and neighbor lists.
+4. Edit `marker.json`; x/y are pixel coordinates inside a tile.
 5. Run `python genshin.py`.
 
-Hotkeys: **M** toggles the overlay; **F6** toggles the control panel; **F7** toggles marker interaction. In F7 mode, left-click a marker to mark it found and right-click to restore it; only marker hit areas intercept input, while the rest of the game remains clickable.
+Hotkeys: **M** toggles overlay; **F6** toggles controls; **F7** toggles marker interaction.
 
-## Tiles
+## Multi-map architecture
 
-The reference manager precomputes ORB descriptors once. It tries the last recognized tile, then declared neighbors, then all remaining tiles as fallback. Neighbor crops should overlap by about 15–25%. Use clear crops at consistent scale and orientation, avoiding UI elements and labels when possible.
+`map-catalog.example.json` defines independent map identities. Every map has a stable ID, region, floor, supported capture modes, its own reference manifest, and its own marker file. Use it as the template for all HoYoLAB map layers, including surface regions, underground floors, Enkanomiya, the Chasm, domains, and future additions. Do not assume a fixed region list: the catalogue is data-driven.
 
-Set `monitor_index` in the manifest if needed. MSS index 1 is the first physical display. No game-map imagery is included; supply images you are permitted to use.
+Markers may include `map_id`; progress is stored by globally unique marker ID and remains shared between views. The renderer filters markers by the detected map identity.
 
-## Controls
+## Full map and minimap
 
-The control panel shows markers for the current tile. Check/uncheck a marker to mark it found/unfound; state persists in `data/progress.db`. Category checkboxes independently hide/show types. In normal mode the overlay is click-through. Press F7 to make only marker hitboxes interactive: left-click marks found, right-click restores the marker; all other screen areas continue passing input to the game.
+- `screen_tracker.py`: full-frame ORB matching, RANSAC homography and confidence checks.
+- `minimap_tracker.py`: independent normalized screen ROI, optional circular feature mask, and coordinate translation into monitor space. Configure `minimap_roi` in a minimap reference manifest using fractions of the monitor (0..1).
+- `map_catalog.py`: versioned multi-map/floor catalogue and safe local asset path resolution.
+- `reference_manager.py`: cached ORB descriptors and neighbor-prioritized tile lookup.
+- `marker_renderer.py`: map-aware marker projection and category filtering.
+- `marker_database.py`: marker validation and persistent SQLite progress.
 
-## Modules
+A minimap reference set is not interchangeable with a full-map tile set. It must contain visual reference crops prepared for the minimap scale and orientation. The tracker can estimate rotation through homography, but live-game validation is still required.
 
-- `reference_manager.py`: tile loading, descriptor cache, neighbor ordering.
-- `screen_tracker.py`: capture, ORB matching, RANSAC homography and confidence checks.
-- `worker.py`: background CV worker.
-- `marker_renderer.py`: coordinate projection and filters.
-- `marker_database.py`: validated catalogue and SQLite progress.
-- `overlay.py`: transparent click-through overlay with optional marker-only hit testing.
-- `control_panel.py`: filters and progress controls.
-- `hotkeys.py`: M/F6/F7 hotkeys bridged safely into Qt.
+## Reference data and rights
 
-## Limitations
+No HoYoverse map imagery or marker database is bundled. The application accepts local images and metadata that the user is authorized to use. The catalogue/import boundary is deliberately independent of any private or undocumented HoYoLAB endpoint; no authentication bypass, anti-bot evasion, or automatic redistribution is implemented. A future importer should use an official/exported source with permission and preserve source attribution and licensing metadata.
 
-This prototype has not been tested against a live Genshin client here. Reference images and a ready-to-use manifest must be supplied locally. The tracker assumes fixed map scale/orientation within a tile; zoom, rotation, UI obstruction and repetitive terrain can reduce accuracy. Multi-monitor and mixed-DPI behavior needs real-device testing. Marker positions are currently edited in JSON; a visual marker editor is not included.
+## Current status and limitations
+
+The multi-map catalogue and minimap-localization foundation are implemented, but the existing `genshin.py` runtime is not yet wired to run multiple map trackers concurrently or switch all maps automatically. Full/minimap recognition, map selection, and per-map marker-file loading need integration and live client validation. Reference assets and exact minimap ROI depend on the user's resolution/UI scale. Zoom, UI obstruction, repeated terrain, mixed DPI, and multiple monitors require real-device testing. Marker editing is currently JSON-based.
