@@ -1,38 +1,24 @@
-"""Reference-tile matching and screen-to-map homography estimation."""
+"""Fast local-tile matcher with neighbor prioritization and temporal confidence."""
 from __future__ import annotations
 
-import json
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
 import mss
 import numpy as np
 
+from reference_manager import ReferenceManager
+
 LOG = logging.getLogger(__name__)
 
 
-@dataclass(slots=True)
-class ReferenceTile:
-    tile_id: str
-    image_size: tuple[int, int]
-    keypoints: list
-    descriptors: np.ndarray
-
-
 class ScreenTracker:
-    """Precomputes ORB descriptors once and matches the previous tile first."""
-
     def __init__(self, manifest_path: str | Path, *, max_features: int = 3500,
                  ratio_test: float = 0.74, min_matches: int = 14,
                  min_inliers: int = 11, min_inlier_ratio: float = 0.35) -> None:
-        self.manifest_path = Path(manifest_path).resolve()
-        if not self.manifest_path.is_file():
-            raise FileNotFoundError(
-                f"Reference manifest not found: {self.manifest_path}. "
-                "Create it from references/manifest.example.json and add map tiles."
-            )
+        self.manager = ReferenceManager(manifest_path, max_features=max_features,
+                                        min_features=min_matches)
         self.ratio_test = ratio_test
         self.min_matches = min_matches
         self.min_inliers = min_inliers
@@ -41,30 +27,13 @@ class ScreenTracker:
                                   nlevels=8, fastThreshold=12)
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self.sct = mss.mss()
-        self.monitor = dict(self.sct.monitors[1])
-        self.tiles = self._load_tiles()
+        monitor_index = self.manager.monitor_index
+        if monitor_index <= 0 or monitor_index >= len(self.sct.monitors):
+            raise ValueError(f"Invalid monitor_index={monitor_index}; available physical monitors: 1..{len(self.sct.monitors)-1}")
+        self.monitor = dict(self.sct.monitors[monitor_index])
         self._last_tile_id: str | None = None
-
-    def _load_tiles(self) -> list[ReferenceTile]:
-        data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        if not data.get("tiles"):
-            raise ValueError("Reference manifest contains no tiles.")
-        tiles = []
-        for item in data["tiles"]:
-            path = (self.manifest_path.parent / item["image"]).resolve()
-            image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                LOG.warning("Skipping missing/unreadable tile: %s", path)
-                continue
-            keypoints, descriptors = self.orb.detectAndCompute(image, None)
-            if descriptors is None or len(keypoints) < self.min_matches:
-                LOG.warning("Tile %s has too few ORB features", item["id"])
-                continue
-            tiles.append(ReferenceTile(str(item["id"]), (image.shape[1], image.shape[0]),
-                                       keypoints, descriptors))
-        if not tiles:
-            raise RuntimeError("No usable reference tiles. Add map images under references/tiles/.")
-        return tiles
+        self._last_detection: dict | None = None
+        self._misses = 0
 
     def capture_screen(self) -> np.ndarray:
         frame = np.asarray(self.sct.grab(self.monitor))
@@ -74,10 +43,10 @@ class ScreenTracker:
         frame = self.capture_screen()
         screen_points, screen_descriptors = self.orb.detectAndCompute(frame, None)
         if screen_descriptors is None or len(screen_points) < self.min_matches:
-            return None
-        candidates = sorted(self.tiles, key=lambda tile: tile.tile_id != self._last_tile_id)
+            return self._on_miss()
+
         best = None
-        for tile in candidates:
+        for tile in self.manager.candidates(self._last_tile_id):
             pairs = self.matcher.knnMatch(tile.descriptors, screen_descriptors, k=2)
             good = [a for pair in pairs if len(pair) == 2
                     for a, b in [pair] if a.distance < self.ratio_test * b.distance]
@@ -90,29 +59,45 @@ class ScreenTracker:
             if h is None or mask is None or not np.isfinite(h).all():
                 continue
             inliers = int(mask.ravel().sum())
-            ratio = inliers / len(good)
+            ratio = inliers / max(len(good), 1)
             if inliers < self.min_inliers or ratio < self.min_inlier_ratio:
                 continue
-            corners = np.float32([[0, 0], [tile.image_size[0], 0],
-                                  [tile.image_size[0], tile.image_size[1]],
-                                  [0, tile.image_size[1]]]).reshape(-1, 1, 2)
+            corners = np.float32([[0, 0], [tile.width, 0], [tile.width, tile.height],
+                                  [0, tile.height]]).reshape(-1, 1, 2)
             projected = cv2.perspectiveTransform(corners, h).reshape(-1, 2)
             if not np.isfinite(projected).all():
                 continue
-            if np.ptp(projected[:, 0]) < frame.shape[1] * 0.12 or np.ptp(projected[:, 1]) < frame.shape[0] * 0.12:
+            width, height = np.ptp(projected[:, 0]), np.ptp(projected[:, 1])
+            if width < frame.shape[1] * 0.12 or height < frame.shape[0] * 0.12:
+                continue
+            # A projected tile should not be an extreme sliver or astronomically large.
+            if width > frame.shape[1] * 8 or height > frame.shape[0] * 8:
                 continue
             score = inliers * ratio
             if best is None or score > best["score"]:
                 best = {"tile_id": tile.tile_id, "homography": h, "matches": len(good),
-                        "inliers": inliers, "inlier_ratio": ratio,
-                        "screen_size": (frame.shape[1], frame.shape[0]),
-                        "monitor_origin": (self.monitor["left"], self.monitor["top"]),
-                        "score": score}
+                        "inliers": inliers, "inlier_ratio": ratio, "score": score}
+
         if best is None:
-            return None
+            return self._on_miss()
         self._last_tile_id = best["tile_id"]
+        self._misses = 0
         best.pop("score")
+        best.update({
+            "screen_size": (frame.shape[1], frame.shape[0]),
+            "monitor_origin": (self.monitor["left"], self.monitor["top"]),
+            "monitor_size": (self.monitor["width"], self.monitor["height"]),
+        })
+        self._last_detection = best
         return best
+
+    def _on_miss(self) -> dict | None:
+        self._misses += 1
+        # Do not display stale positions indefinitely; tolerate one missed frame.
+        if self._misses <= 1 and self._last_detection is not None:
+            return self._last_detection
+        self._last_detection = None
+        return None
 
     def close(self) -> None:
         self.sct.close()
