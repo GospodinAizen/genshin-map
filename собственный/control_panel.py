@@ -1,0 +1,116 @@
+"""Small control window for category filters and found/unfound marker progress."""
+from __future__ import annotations
+from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtWidgets import (QCheckBox, QDialog, QHBoxLayout, QLabel,
+                               QListWidget, QListWidgetItem, QPushButton,
+                               QVBoxLayout, QMessageBox)
+from marker_renderer import COLORS
+
+
+CATEGORY_NAMES = {
+    "chest": "Сундуки", "oculus": "Окулусы", "quest": "Задания",
+    "puzzle": "Загадки", "resource": "Ресурсы", "challenge": "Испытания",
+}
+
+
+class ControlPanel(QDialog):
+    toggle_requested = Signal()
+
+    def __init__(self, database, overlay) -> None:
+        super().__init__()
+        self.database = database
+        self.overlay = overlay
+        self._loading = False
+        self.detection = None
+        self.setWindowTitle("Genshin Map — управление метками")
+        self.setMinimumWidth(340)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.toggle_requested.connect(self.toggle)
+
+        root = QVBoxLayout(self)
+        root.addWidget(QLabel("Категории меток"))
+        self.category_checks = {}
+        for category in COLORS:
+            checkbox = QCheckBox(CATEGORY_NAMES.get(category, category))
+            checkbox.setChecked(True)
+            checkbox.toggled.connect(
+                lambda enabled, kind=category: self.overlay.set_category_enabled(kind, enabled)
+            )
+            self.category_checks[category] = checkbox
+            root.addWidget(checkbox)
+
+        root.addWidget(QLabel("Объекты текущего участка"))
+        self.status_label = QLabel("Ожидание распознавания карты…")
+        root.addWidget(self.status_label)
+        self.marker_list = QListWidget()
+        self.marker_list.itemChanged.connect(self._marker_changed)
+        root.addWidget(self.marker_list)
+
+        buttons = QHBoxLayout()
+        self.reset_button = QPushButton("Сбросить прогресс")
+        self.reset_button.clicked.connect(self._reset_progress)
+        buttons.addWidget(self.reset_button)
+        close_button = QPushButton("Скрыть")
+        close_button.clicked.connect(self.hide)
+        buttons.addWidget(close_button)
+        root.addLayout(buttons)
+
+        help_text = QLabel("M — показать/скрыть оверлей · F6 — панель")
+        help_text.setStyleSheet("color: #888;")
+        root.addWidget(help_text)
+
+    @Slot(object)
+    def update_detection(self, detection) -> None:
+        self.detection = detection
+        self._loading = True
+        self.marker_list.clear()
+        if detection is None:
+            self.status_label.setText("Карта не распознана")
+            self._loading = False
+            return
+        tile_id = detection["tile_id"]
+        markers = [m for m in self.database.get_markers() if m["tile_id"] == tile_id]
+        found = self.database.get_found_ids()
+        self.status_label.setText(f"Участок: {tile_id} · объектов: {len(markers)}")
+        for marker in markers:
+            item = QListWidgetItem(f'{marker["name"]}  [{marker["type"]}]')
+            item.setData(Qt.ItemDataRole.UserRole, marker["id"])
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked if marker["id"] in found
+                               else Qt.CheckState.Unchecked)
+            self.marker_list.addItem(item)
+        self._loading = False
+
+    @Slot(QListWidgetItem)
+    def _marker_changed(self, item: QListWidgetItem) -> None:
+        if self._loading:
+            return
+        marker_id = item.data(Qt.ItemDataRole.UserRole)
+        self.database.set_found(marker_id, item.checkState() == Qt.CheckState.Checked)
+        if self.detection is not None:
+            self.overlay.update_detection(self.detection)
+
+    @Slot()
+    def _reset_progress(self) -> None:
+        answer = QMessageBox.question(
+            self, "Сброс прогресса", "Снять отметку «найдено» со всех объектов?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.database.reset_progress()
+        self.update_detection(self.detection)
+        self.overlay.update_detection(self.detection)
+
+    @Slot()
+    def toggle(self) -> None:
+        self.setVisible(not self.isVisible())
+
+    @Slot(str)
+    def show_error(self, message: str) -> None:
+        self.status_label.setText(f"Ошибка: {message}")
+
+    def closeEvent(self, event) -> None:
+        event.ignore()
+        self.hide()
