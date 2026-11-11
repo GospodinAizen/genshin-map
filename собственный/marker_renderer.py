@@ -13,8 +13,11 @@ def prepare_markers(markers: list[dict], detection: dict | None,
     if detection is None:
         return []
     result = []
+    active_map = detection.get("map_id")
     for marker in markers:
         if marker["tile_id"] != detection["tile_id"] or marker["id"] in found_ids:
+            continue
+        if active_map is not None and marker.get("map_id", "teyvat_surface") != active_map:
             continue
         if marker["type"] not in enabled_types:
             continue
