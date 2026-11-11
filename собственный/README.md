@@ -14,11 +14,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-The current runnable prototype still uses the legacy single-map entry point:
-1. Copy `references/manifest.example.json` to `references/manifest.json`.
-2. Put permitted local reference crops under `references/tiles/`.
-3. Edit tile IDs, paths and neighbor lists.
-4. Run `python genshin.py`.
+For the HoYoLAB-backed first in-game prototype on Windows, use `Запустить_тест.bat` (instructions below). The legacy manual-reference mode remains available with `python genshin.py` after preparing `references/manifest.json` and its image files.
 
 Hotkeys: **M** toggles overlay; **F6** toggles controls; **F7** toggles marker interaction.
 
@@ -32,7 +28,7 @@ python hoyolab_importer.py ./path/to/snapshot -o ./data/hoyolab-map-2.json
 
 The importer does not fabricate missing labels or names. Points referring to unknown labels are counted and skipped. IDs are namespaced by source map and z-level to avoid collisions.
 
-**Important coordinate boundary:** imported coordinates are in the HoYoLAB map coordinate space (`coordinate_space=hoyolab_map`), not pixels inside a local reference tile. They are intentionally not fed into the existing tile-pixel renderer until a verified transform from the source map's coordinate system to the selected reference-tile set is configured. The importer is a safe data-ingestion stage, not a claim that all imported markers are already rendered in-game.
+**Coordinate transform:** HoYoLAB's public map metadata defines `world_pixel = point + origin`; the runtime uses the official zoom -4 tile pyramid, where scale is 1/16 and each tile is 256×256 px. `hoyolab_runtime.py` stitches the 9×8 official low-zoom tile grid into one reference image and projects surface markers into that same image coordinate space. The existing ORB/RANSAC tracker then maps the reference image onto the visible game-map viewport. Underground z-levels are deliberately excluded from this first surface prototype until independent floor references are generated.
 
 The referenced public snapshot project currently documents a Teyvat snapshot (`map_id=2`). This does not establish complete coverage of every region, underground floor, domain, or future HoYoLAB layer. Each additional map needs its own verified source snapshot and catalogue entry. No login bypass or anti-bot evasion is implemented.
 
@@ -51,11 +47,11 @@ python hoyolab_updater.py
 python hoyolab_updater.py --force
 ```
 
-Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on Windows and ~/.cache/genshin-map-overlay/hoyolab/teyvat on Linux/macOS (or XDG_CACHE_HOME when set). Use --cache-dir to override. The installed folder contains upstream meta.json, labels.json, points.json, icons and tiles, plus markers.normalized.json and upstream-release.json.
+Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on Windows and ~/.cache/genshin-map-overlay/hoyolab/teyvat on Linux/macOS (or XDG_CACHE_HOME when set). Use --cache-dir to override. The installed folder contains upstream meta.json, labels.json, points.json, icons and tiles, plus markers.normalized.json, markers.runtime.json, references/manifest.json, the stitched world reference image, and upstream-release.json.
 
 Extraction rejects traversal paths, links and special files, enforces archive/member/expanded-size limits, checks archive size and release digest, validates the snapshot JSON through the importer, and swaps the new snapshot into place only after validation. Tests use local fixtures and do not access the network.
 
-This updater currently downloads the full Teyvat snapshot only. It does not claim that every underground map, domain, event map, or future HoYoLAB layer is present. Normalized coordinates remain in HoYoLAB map space; this update does not yet wire the tiles or coordinates into the live overlay renderer.
+This updater currently downloads the full Teyvat snapshot only. It does not claim that every underground map, domain, event map, or future HoYoLAB layer is present. The updater also builds the zoom -4 world reference and runtime marker catalogue used by the overlay. This first runtime is Teyvat surface only; it does not yet support underground floors or the minimap.
 
 ## Multi-map architecture
 
@@ -74,14 +70,14 @@ A minimap reference set is not interchangeable with a full-map tile set. It must
 
 ## Current status and limitations
 
-The map catalogue, minimap-localization foundation, and lossless HoYoLAB snapshot importer are implemented. The existing `genshin.py` runtime is still a legacy single-manifest runtime: automatic map discovery/switching, projection of HoYoLAB map coordinates into tile coordinates, and live client validation are not yet complete. Reference assets and exact minimap ROI depend on screen resolution and UI scale. Zoom, UI obstruction, repeated terrain, mixed DPI, and multiple monitors require real-device testing.
+The first HoYoLAB surface runtime is now wired into `genshin.py`: it downloads the public Teyvat snapshot, stitches the official zoom -4 tiles, projects surface markers, and feeds them to the existing ORB/RANSAC screen tracker and overlay. It is an experimental first build, not a verified release: map recognition can fail on some zoom levels, UI scales, aspect ratios, or monitor layouts. Underground floors, minimap projection, automatic map switching, and live validation on the user's PC remain unfinished.
 
 ## First user test (Windows)
 
 1. Install Python 3.11 or newer and enable the Python Launcher.
 2. Download this branch as a ZIP from GitHub and extract it.
 3. Open the `собственный` folder and double-click `Запустить_тест.bat`.
-4. The launcher creates a virtual environment, installs dependencies, downloads and validates the latest public Teyvat snapshot, then opens a searchable marker browser.
-5. Search categories/names and tick a marker. Close and reopen the browser: the found state should remain saved.
+4. The launcher creates a virtual environment, installs dependencies, downloads and validates the latest public Teyvat snapshot, builds the official low-zoom reference map, and starts the overlay.
+5. Start Genshin Impact in borderless/windowed mode, open the in-game full map, and press **M** to show/hide the overlay. Press **F6** for the category/progress panel and **F7** to enable marker clicks (left-click = found, right-click = unmark).
 
-The browser displays the original HoYoLAB label names and category hierarchy from the imported snapshot. It is a real test of snapshot download, import, browsing, search, and persistent progress. It is **not yet the in-game overlay**: source map coordinates are not yet transformed into the screen/tile coordinate system, and this launcher does not claim live marker projection or minimap detection. The existing `genshin.py` prototype remains separate and still needs manually prepared reference images.
+This test build uses the official HoYoLAB Teyvat surface points and map tiles. It does not require user screenshots or manually prepared map crops. The game map must be visible on the selected monitor (monitor 1 by default). If recognition does not lock on, the overlay will show no markers rather than inventing positions. The minimap and underground floors are not part of this first test.
