@@ -6,12 +6,6 @@ from PySide6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout,
 )
-from marker_renderer import COLORS
-
-CATEGORY_NAMES = {
-    "chest": "Сундуки", "oculus": "Окулусы", "quest": "Задания",
-    "puzzle": "Загадки", "resource": "Ресурсы", "challenge": "Испытания",
-}
 
 
 class ControlPanel(QDialog):
@@ -33,8 +27,9 @@ class ControlPanel(QDialog):
         root = QVBoxLayout(self)
         root.addWidget(QLabel("Категории меток"))
         self.category_checks = {}
-        for category in COLORS:
-            checkbox = QCheckBox(CATEGORY_NAMES.get(category, category))
+        categories = sorted({str(m.get("type", "Other")) for m in database.markers})
+        for category in categories:
+            checkbox = QCheckBox(category)
             checkbox.setChecked(True)
             checkbox.toggled.connect(
                 lambda enabled, kind=category: self.overlay.set_category_enabled(kind, enabled)
@@ -60,7 +55,8 @@ class ControlPanel(QDialog):
 
         help_text = QLabel(
             "M — оверлей · F6 — панель · F7 — клики по меткам\n"
-            "ЛКМ — найдено · ПКМ — вернуть метку"
+            "ЛКМ — найдено · ПКМ — вернуть метку\n"
+            "Метки и названия загружены из публичной карты HoYoLAB"
         )
         help_text.setStyleSheet("color: #888;")
         root.addWidget(help_text)
