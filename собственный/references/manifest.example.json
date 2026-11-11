@@ -1,0 +1,6 @@
+{
+  "tiles": [
+    {"id": "mondstadt_01", "image": "tiles/mondstadt_01.png"},
+    {"id": "mondstadt_02", "image": "tiles/mondstadt_02.png"}
+  ]
+}
