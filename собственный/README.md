@@ -4,9 +4,10 @@ Desktop prototype: recognize the visible game map against local reference tiles 
 
 ## Install and run
 
-Python 3.10+ recommended.
+Python 3.10+ recommended. Run the following commands from the repository root:
 
 ```bash
+cd собственный
 python -m venv .venv
 # Windows: .venv\\Scripts\\activate
 # Linux/macOS: source .venv/bin/activate
