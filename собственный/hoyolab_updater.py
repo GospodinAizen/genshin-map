@@ -136,7 +136,12 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
     if not force and version_file.is_file():
         try:
             installed = json.loads(version_file.read_text(encoding="utf-8"))
-            if installed.get("tag") == asset["tag"]:
+            runtime_ready = (
+                (target / "markers.runtime.json").is_file()
+                and (target / "references" / "manifest.json").is_file()
+                and (target / "references" / "teyvat_world_zoom_minus4.png").is_file()
+            )
+            if installed.get("tag") == asset["tag"] and runtime_ready:
                 return {"status": "current", "tag": asset["tag"], "path": str(target)}
         except (OSError, json.JSONDecodeError):
             pass
