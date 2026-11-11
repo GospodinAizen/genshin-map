@@ -25,9 +25,14 @@ class MarkerDatabase:
             if marker_id in seen:
                 raise ValueError(f"Duplicate marker id: {marker_id}")
             seen.add(marker_id)
-            self.markers.append({**marker, "id": marker_id,
-                                 "tile_id": str(marker.get("tile_id", "mondstadt_01")),
-                                 "x": float(marker["x"]), "y": float(marker["y"])})
+            self.markers.append({
+                **marker,
+                "id": marker_id,
+                "map_id": str(marker.get("map_id", "teyvat_surface")),
+                "tile_id": str(marker.get("tile_id", "mondstadt_01")),
+                "x": float(marker["x"]),
+                "y": float(marker["y"]),
+            })
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = RLock()
         self.connection = sqlite3.connect(self.database_path, check_same_thread=False)
@@ -36,8 +41,10 @@ class MarkerDatabase:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
         self.connection.commit()
 
-    def get_markers(self) -> list[dict]:
-        return list(self.markers)
+    def get_markers(self, map_id: str | None = None) -> list[dict]:
+        if map_id is None:
+            return list(self.markers)
+        return [m for m in self.markers if m["map_id"] == map_id]
 
     def get_found_ids(self) -> set[str]:
         with self._lock:
@@ -56,9 +63,16 @@ class MarkerDatabase:
         self.set_found(marker_id, value)
         return value
 
-    def reset_progress(self) -> None:
+    def reset_progress(self, map_id: str | None = None) -> None:
         with self._lock:
-            self.connection.execute("DELETE FROM progress")
+            if map_id is None:
+                self.connection.execute("DELETE FROM progress")
+            else:
+                ids = [m["id"] for m in self.markers if m["map_id"] == map_id]
+                if ids:
+                    self.connection.executemany(
+                        "DELETE FROM progress WHERE marker_id=?", [(item,) for item in ids]
+                    )
             self.connection.commit()
 
     def close(self) -> None:
