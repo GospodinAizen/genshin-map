@@ -19,7 +19,7 @@ pip install -r requirements.txt
 4. Edit `marker.json`; x/y are pixel coordinates inside the tile named by tile_id.
 5. Run `python genshin.py`.
 
-Hotkeys: **M** toggles the click-through overlay; **F6** toggles the control panel.
+Hotkeys: **M** toggles the overlay; **F6** toggles the control panel; **F7** toggles marker interaction. In F7 mode, left-click a marker to mark it found and right-click to restore it; only marker hit areas intercept input, while the rest of the game remains clickable.
 
 ## Tiles
 
@@ -38,7 +38,7 @@ The control panel shows markers for the current tile. Check/uncheck a marker to 
 - `worker.py`: background CV worker.
 - `marker_renderer.py`: coordinate projection and filters.
 - `marker_database.py`: validated catalogue and SQLite progress.
-- `overlay.py`: transparent overlay.
+- `overlay.py`: transparent click-through overlay with optional marker-only hit testing.
 - `control_panel.py`: filters and progress controls.
 - `hotkeys.py`: M/F6 hotkeys bridged safely into Qt.
 
