@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from hoyolab_importer import import_snapshot
+from hoyolab_runtime import build_runtime_assets
 
 RELEASE_API = "https://api.github.com/repos/kxxoling/genshin-map-data/releases/latest"
 MAX_ARCHIVE_BYTES = 300 * 1024 * 1024
@@ -156,6 +157,11 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
         metadata = {**{k: asset[k] for k in ("tag", "name", "published_at", "html_url")},
                     "archive_sha256": archive_sha, "map_key": map_key,
                     "point_count": normalized["point_count"]}
+        (extracted / "upstream-release.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        runtime = build_runtime_assets(extracted)
+        metadata["runtime"] = runtime
         (extracted / "upstream-release.json").write_text(
             json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
