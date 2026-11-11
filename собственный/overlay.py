@@ -15,7 +15,7 @@ class Overlay(QWidget):
         self.database = database
         self.markers: list[dict] = []
         self.detection: dict | None = None
-        self.enabled_types = set(COLORS)
+        self.enabled_types = {str(marker.get('type', 'Other')) for marker in database.markers}
         self.interactive = False
         self.toggle_requested.connect(self.toggle)
         self.interaction_requested.connect(self.toggle_interaction)
