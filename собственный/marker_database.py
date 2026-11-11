@@ -1,6 +1,5 @@
-"""Validated marker catalogue and persistent found-state storage."""
+"""Validated marker catalogue and thread-safe SQLite progress storage."""
 from __future__ import annotations
-
 import json
 import sqlite3
 from pathlib import Path
@@ -42,23 +41,25 @@ class MarkerDatabase:
 
     def get_found_ids(self) -> set[str]:
         with self._lock:
-            rows = self.connection.execute("SELECT marker_id FROM progress WHERE found = 1").fetchall()
+            rows = self.connection.execute("SELECT marker_id FROM progress WHERE found=1").fetchall()
         return {row[0] for row in rows}
 
-    def is_found(self, marker_id: str) -> bool:
+    def set_found(self, marker_id: str, found: bool) -> None:
         with self._lock:
-            row = self.connection.execute("SELECT found FROM progress WHERE marker_id = ?",
-                                          (marker_id,)).fetchone()
-        return bool(row and row[0])
-
-    def toggle_found(self, marker_id: str) -> bool:
-        with self._lock:
-            new_value = not self.is_found(marker_id)
             self.connection.execute("""INSERT INTO progress(marker_id, found) VALUES (?, ?)
                 ON CONFLICT(marker_id) DO UPDATE SET found=excluded.found,
-                updated_at=CURRENT_TIMESTAMP""", (marker_id, int(new_value)))
+                updated_at=CURRENT_TIMESTAMP""", (marker_id, int(found)))
             self.connection.commit()
-        return new_value
+
+    def toggle_found(self, marker_id: str) -> bool:
+        value = marker_id not in self.get_found_ids()
+        self.set_found(marker_id, value)
+        return value
+
+    def reset_progress(self) -> None:
+        with self._lock:
+            self.connection.execute("DELETE FROM progress")
+            self.connection.commit()
 
     def close(self) -> None:
         with self._lock:
