@@ -1,8 +1,10 @@
-"""Transparent click-through overlay. QWidget work stays on the GUI thread."""
+"""Transparent click-through marker layer. Settings and marker actions live in ControlPanel."""
 from __future__ import annotations
+
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor, QFont, QPainter, QPen
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QWidget
+
 from marker_renderer import COLORS, marker_color, prepare_markers
 
 
@@ -12,14 +14,10 @@ class Overlay(QWidget):
     def __init__(self, database) -> None:
         super().__init__()
         self.database = database
-        self.markers = []
-        self.detection = None
+        self.markers: list[dict] = []
+        self.detection: dict | None = None
         self.enabled_types = set(COLORS)
         self.toggle_requested.connect(self.toggle)
-        screen = QApplication.primaryScreen()
-        if screen is None:
-            raise RuntimeError("Qt could not find a primary display.")
-        self.setGeometry(screen.geometry())
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint |
                             Qt.WindowType.WindowStaysOnTopHint |
                             Qt.WindowType.Tool |
@@ -35,12 +33,22 @@ class Overlay(QWidget):
     @Slot(object)
     def update_detection(self, detection) -> None:
         self.detection = detection
+        if detection is None:
+            self.markers = []
+            self.update()
+            return
+        ox, oy = detection["monitor_origin"]
+        width, height = detection["monitor_size"]
+        self.setGeometry(ox, oy, width, height)
         self.markers = prepare_markers(self.database.get_markers(), detection,
                                        self.database.get_found_ids(), self.enabled_types)
         self.update()
 
     def set_category_enabled(self, category: str, enabled: bool) -> None:
-        (self.enabled_types.add if enabled else self.enabled_types.discard)(category)
+        if enabled:
+            self.enabled_types.add(category)
+        else:
+            self.enabled_types.discard(category)
         self.update_detection(self.detection)
 
     @Slot(str)
