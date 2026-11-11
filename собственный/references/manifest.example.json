@@ -1,6 +1,7 @@
 {
+  "monitor_index": 1,
   "tiles": [
-    {"id": "mondstadt_01", "image": "tiles/mondstadt_01.png"},
-    {"id": "mondstadt_02", "image": "tiles/mondstadt_02.png"}
+    {"id": "mondstadt_01", "image": "tiles/mondstadt_01.png", "neighbors": ["mondstadt_02"]},
+    {"id": "mondstadt_02", "image": "tiles/mondstadt_02.png", "neighbors": ["mondstadt_01"]}
   ]
 }
