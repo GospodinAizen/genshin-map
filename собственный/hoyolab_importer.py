@@ -136,7 +136,7 @@ def main() -> int:
     parser.add_argument("--map-key", help="Optional local catalogue key; source map ID remains preserved")
     args = parser.parse_args()
     result = import_snapshot(args.input_dir, map_key=args.map_key)
-    rendered = json.dumps(result, ensure_ascii=False, indent=2) + "\\n"
+    rendered = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered, encoding="utf-8")
