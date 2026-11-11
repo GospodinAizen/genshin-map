@@ -1,6 +1,7 @@
 """Application entry point and lifetime management."""
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 from pathlib import Path
@@ -22,26 +23,36 @@ def main() -> int:
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
-    app = QApplication(sys.argv)
+    parser = argparse.ArgumentParser(description="Genshin Impact map overlay")
+    parser.add_argument("--hoyolab-cache", type=Path, help="Installed HoYoLAB snapshot directory")
+    args, qt_args = parser.parse_known_args()
+    app = QApplication([sys.argv[0], *qt_args])
     app.setApplicationName("Genshin Map Overlay")
+
+    cache = args.hoyolab_cache
+    if cache is not None:
+        marker_file = cache / "markers.runtime.json"
+        manifest_file = cache / "references" / "manifest.json"
+        progress_file = cache / "progress.db"
+    else:
+        marker_file = ROOT / "marker.json"
+        manifest_file = ROOT / "references" / "manifest.json"
+        progress_file = ROOT / "data" / "progress.db"
 
     database = None
     thread = None
     worker = None
     hotkeys = None
     try:
-        database = MarkerDatabase(
-            ROOT / "marker.json",
-            ROOT / "data" / "progress.db",
-        )
+        database = MarkerDatabase(marker_file, progress_file)
         overlay = Overlay(database)
         panel = ControlPanel(database, overlay)
         panel.show()
 
         thread = QThread()
         worker = DetectionWorker(
-            ROOT / "references" / "manifest.json",
-            interval_ms=350,
+            manifest_file,
+            interval_ms=500,
         )
         worker.moveToThread(thread)
         thread.started.connect(worker.start)
@@ -61,6 +72,9 @@ def main() -> int:
         hotkeys.start()
         logging.getLogger(__name__).info(
             "M: overlay | F6: controls | F7: marker click mode"
+        )
+        logging.getLogger(__name__).info(
+            "Loaded %d markers from %s", len(database.markers), marker_file
         )
         return app.exec()
     except Exception as exc:
