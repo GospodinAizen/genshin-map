@@ -36,6 +36,27 @@ The importer does not fabricate missing labels or names. Points referring to unk
 
 The referenced public snapshot project currently documents a Teyvat snapshot (`map_id=2`). This does not establish complete coverage of every region, underground floor, domain, or future HoYoLAB layer. Each additional map needs its own verified source snapshot and catalogue entry. No login bypass or anti-bot evasion is implemented.
 
+## HoYoLAB snapshot updater
+
+The updater checks the latest public release from kxxoling/genshin-map-data, selects the matching full Teyvat archive, verifies its declared SHA-256 digest (when supplied), and installs it into the OS user cache. It does not put the ~80 MB map archive into this git repository.
+
+```bash
+# Check the upstream release without downloading
+python hoyolab_updater.py --check
+
+# Download, validate, import and atomically install the full Teyvat snapshot
+python hoyolab_updater.py
+
+# Reinstall the same release if the local cache needs repair
+python hoyolab_updater.py --force
+```
+
+Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on Windows and ~/.cache/genshin-map-overlay/hoyolab/teyvat on Linux/macOS (or XDG_CACHE_HOME when set). Use --cache-dir to override. The installed folder contains upstream meta.json, labels.json, points.json, icons and tiles, plus markers.normalized.json and upstream-release.json.
+
+Extraction rejects traversal paths, links and special files, enforces archive/member/expanded-size limits, checks archive size and release digest, validates the snapshot JSON through the importer, and swaps the new snapshot into place only after validation. Tests use local fixtures and do not access the network.
+
+This updater currently downloads the full Teyvat snapshot only. It does not claim that every underground map, domain, event map, or future HoYoLAB layer is present. Normalized coordinates remain in HoYoLAB map space; this update does not yet wire the tiles or coordinates into the live overlay renderer.
+
 ## Multi-map architecture
 
 `map-catalog.example.json` defines independent map identities. Every map has a stable ID, region, floor, supported capture modes, its own reference manifest, and its own marker file. Keep the catalogue data-driven; do not assume a fixed region list.
