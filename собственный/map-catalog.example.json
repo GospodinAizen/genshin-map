@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "default_map_id": "teyvat_surface",
+  "maps": [
+    {
+      "id": "teyvat_surface",
+      "name": "Тейват — поверхность",
+      "region": "teyvat",
+      "floor": "surface",
+      "modes": ["full", "minimap"],
+      "reference_manifest": "references/teyvat_surface/manifest.json",
+      "marker_file": "markers/teyvat_surface.json",
+      "enabled": true,
+      "source": "local-authorized"
+    },
+    {
+      "id": "chasm_underground",
+      "name": "Разлом — подземные шахты",
+      "region": "chasm",
+      "floor": "underground",
+      "modes": ["full"],
+      "reference_manifest": "references/chasm_underground/manifest.json",
+      "marker_file": "markers/chasm_underground.json",
+      "enabled": true,
+      "source": "local-authorized"
+    },
+    {
+      "id": "enkanomiya",
+      "name": "Энканомия",
+      "region": "enkanomiya",
+      "floor": "surface",
+      "modes": ["full", "minimap"],
+      "reference_manifest": "references/enkanomiya/manifest.json",
+      "marker_file": "markers/enkanomiya.json",
+      "enabled": true,
+      "source": "local-authorized"
+    }
+  ]
+}
