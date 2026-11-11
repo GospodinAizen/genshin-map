@@ -41,9 +41,9 @@ def main() -> int:
         thread.finished.connect(worker.deleteLater)
         thread.start()
 
-        hotkeys = HotkeyListener(overlay.toggle_requested.emit, panel.toggle_requested.emit)
+        hotkeys = HotkeyListener(overlay.toggle_requested.emit, panel.toggle_requested.emit,\n                                overlay.interaction_requested.emit)
         hotkeys.start()
-        logging.getLogger(__name__).info("Press M to toggle overlay, F6 to toggle controls.")
+        logging.getLogger(__name__).info("M: overlay · F6: controls · F7: marker click mode.")
         return app.exec()
     except Exception as exc:
         logging.getLogger(__name__).exception("Application startup failed")
