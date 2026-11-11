@@ -29,7 +29,7 @@ Set `monitor_index` in the manifest if needed. MSS index 1 is the first physical
 
 ## Controls
 
-The control panel shows markers for the current tile. Check/uncheck a marker to mark it found/unfound; state persists in `data/progress.db`. Category checkboxes independently hide/show types. The overlay remains click-through so it does not block game input.
+The control panel shows markers for the current tile. Check/uncheck a marker to mark it found/unfound; state persists in `data/progress.db`. Category checkboxes independently hide/show types. In normal mode the overlay is click-through. Press F7 to make only marker hitboxes interactive: left-click marks found, right-click restores the marker; all other screen areas continue passing input to the game.
 
 ## Modules
 
@@ -40,7 +40,7 @@ The control panel shows markers for the current tile. Check/uncheck a marker to 
 - `marker_database.py`: validated catalogue and SQLite progress.
 - `overlay.py`: transparent click-through overlay with optional marker-only hit testing.
 - `control_panel.py`: filters and progress controls.
-- `hotkeys.py`: M/F6 hotkeys bridged safely into Qt.
+- `hotkeys.py`: M/F6/F7 hotkeys bridged safely into Qt.
 
 ## Limitations
 
