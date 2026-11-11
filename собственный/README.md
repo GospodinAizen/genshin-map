@@ -1,8 +1,8 @@
 # Genshin Map Overlay
 
-Desktop overlay prototype: local map reference tiles + ORB feature matching + homography marker projection.
+Desktop prototype: recognize the visible game map against local reference tiles and project custom markers into a transparent overlay.
 
-## Run
+## Install and run
 
 Python 3.10+ recommended.
 
@@ -13,35 +13,35 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-Create `references/manifest.json` from `references/manifest.example.json`, add your own map crops to `references/tiles/`, then run:
+1. Copy `references/manifest.example.json` to `references/manifest.json`.
+2. Put your own map crops under `references/tiles/`.
+3. Edit tile IDs, paths and neighbor lists in the manifest.
+4. Edit `marker.json`; x/y are pixel coordinates inside the tile named by tile_id.
+5. Run `python genshin.py`.
 
-```bash
-python genshin.py
-```
+Hotkeys: **M** toggles the click-through overlay; **F6** toggles the control panel.
 
-Press **M** to show/hide the click-through overlay.
+## Tiles
 
-## Tiles and markers
+The reference manager precomputes ORB descriptors once. It tries the last recognized tile, then declared neighbors, then all remaining tiles as fallback. Neighbor crops should overlap by about 15–25%. Use clear crops at consistent scale and orientation, avoiding UI elements and labels when possible.
 
-The manifest stores unique tile IDs and image paths relative to itself. Use high-resolution local crops with about 15–25% overlap between neighboring tiles. Marker x/y coordinates are pixel coordinates inside the corresponding tile. Add `"tile_id": "mondstadt_01"` to each marker record. If omitted, the current demo catalogue defaults to `mondstadt_01`.
+Set `monitor_index` in the manifest if needed. MSS index 1 is the first physical display. No game-map imagery is included; supply images you are permitted to use.
 
-Example:
+## Controls
 
-```json
-{"id":"chest_001","name":"Chest","type":"chest","tile_id":"mondstadt_01","x":512,"y":384}
-```
-
-Supported categories: chest, oculus, quest, puzzle, resource, challenge.
+The control panel shows markers for the current tile. Check/uncheck a marker to mark it found/unfound; state persists in `data/progress.db`. Category checkboxes independently hide/show types. The overlay remains click-through so it does not block game input.
 
 ## Modules
 
-- `screen_tracker.py`: cached ORB descriptors per tile, previous-tile-first matching, ratio filtering and RANSAC homography validation.
-- `worker.py`: runs capture and CV on a worker thread.
-- `marker_renderer.py`: pure projection/filtering logic.
+- `reference_manager.py`: tile loading, descriptor cache, neighbor ordering.
+- `screen_tracker.py`: capture, ORB matching, RANSAC homography and confidence checks.
+- `worker.py`: background CV worker.
+- `marker_renderer.py`: coordinate projection and filters.
 - `marker_database.py`: validated catalogue and SQLite progress.
-- `overlay.py`: transparent click-through Qt window.
-- `hotkeys.py`: pynput-to-Qt signal bridge.
+- `overlay.py`: transparent overlay.
+- `control_panel.py`: filters and progress controls.
+- `hotkeys.py`: M/F6 hotkeys bridged safely into Qt.
 
 ## Limitations
 
-No map-reference images are included. The tracker cannot work until you add tiles and a manifest. The overlay is click-through, so clicking markers to mark them found is not implemented. Capture currently targets the first physical monitor; multi-monitor and DPI behavior need testing. Feature matching can fail under map rotation, heavy UI obstruction, effects, or repetitive terrain.
+This prototype has not been tested against a live Genshin client here. Reference images and a ready-to-use manifest must be supplied locally. The tracker assumes fixed map scale/orientation within a tile; zoom, rotation, UI obstruction and repetitive terrain can reduce accuracy. Multi-monitor and mixed-DPI behavior needs real-device testing. Marker positions are currently edited in JSON; a visual marker editor is not included.
