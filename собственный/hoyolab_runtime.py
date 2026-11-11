@@ -98,7 +98,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
     return {
         "reference_image": str(image_path),
         "manifest": str(references / "manifest.json"),
-        "markers": str(marker_path),
+        "marker_file": str(marker_path),
         "tiles_loaded": loaded,
         "tiles_expected": cols * rows,
         "markers": len(runtime_markers),
