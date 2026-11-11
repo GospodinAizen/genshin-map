@@ -21,6 +21,7 @@ def main() -> int:
     app.setApplicationName("Genshin Map Overlay")
     database = None
     thread = None
+    worker = None
     hotkeys = None
     try:
         database = MarkerDatabase(ROOT / "marker.json", ROOT / "data" / "progress.db")
@@ -36,8 +37,7 @@ def main() -> int:
         worker.detection_ready.connect(panel.update_detection)
         worker.error.connect(overlay.show_error)
         worker.error.connect(panel.show_error)
-        app.aboutToQuit.connect(worker.stop)
-        app.aboutToQuit.connect(thread.quit)
+        app.aboutToQuit.connect(worker.stop_requested.emit)
         thread.finished.connect(worker.deleteLater)
         thread.start()
 
@@ -52,8 +52,8 @@ def main() -> int:
     finally:
         if hotkeys is not None:
             hotkeys.stop()
-        if thread is not None and thread.isRunning():
-            thread.quit()
+        if worker is not None and thread is not None and thread.isRunning():
+            worker.stop_requested.emit()
             thread.wait(5000)
         if database is not None:
             database.close()
