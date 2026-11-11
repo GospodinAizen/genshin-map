@@ -1,13 +1,11 @@
-"""Application entry point for the Genshin map overlay."""
+"""Application entry point and lifetime management."""
 from __future__ import annotations
-
 import logging
 import sys
 from pathlib import Path
-
-from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtCore import QThread
-
+from PySide6.QtWidgets import QApplication, QMessageBox
+from control_panel import ControlPanel
 from hotkeys import HotkeyListener
 from marker_database import MarkerDatabase
 from overlay import Overlay
@@ -17,7 +15,8 @@ ROOT = Path(__file__).resolve().parent
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
+    logging.basicConfig(level=logging.INFO,
+                        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s")
     app = QApplication(sys.argv)
     app.setApplicationName("Genshin Map Overlay")
     database = None
@@ -26,22 +25,25 @@ def main() -> int:
     try:
         database = MarkerDatabase(ROOT / "marker.json", ROOT / "data" / "progress.db")
         overlay = Overlay(database)
-        overlay.show()
+        panel = ControlPanel(database, overlay)
+        panel.show()
 
         thread = QThread()
         worker = DetectionWorker(ROOT / "references" / "manifest.json", interval_ms=350)
         worker.moveToThread(thread)
         thread.started.connect(worker.start)
         worker.detection_ready.connect(overlay.update_detection)
+        worker.detection_ready.connect(panel.update_detection)
         worker.error.connect(overlay.show_error)
+        worker.error.connect(panel.show_error)
         app.aboutToQuit.connect(worker.stop)
         app.aboutToQuit.connect(thread.quit)
         thread.finished.connect(worker.deleteLater)
         thread.start()
 
-        hotkeys = HotkeyListener(overlay.toggle_requested.emit)
+        hotkeys = HotkeyListener(overlay.toggle_requested.emit, panel.toggle_requested.emit)
         hotkeys.start()
-        logging.getLogger(__name__).info("Started. Press M to show/hide the overlay.")
+        logging.getLogger(__name__).info("Press M to toggle overlay, F6 to toggle controls.")
         return app.exec()
     except Exception as exc:
         logging.getLogger(__name__).exception("Application startup failed")
@@ -52,7 +54,7 @@ def main() -> int:
             hotkeys.stop()
         if thread is not None and thread.isRunning():
             thread.quit()
-            thread.wait(3000)
+            thread.wait(5000)
         if database is not None:
             database.close()
 
