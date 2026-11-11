@@ -22,17 +22,17 @@ if errorlevel 1 goto :failed
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt
 if errorlevel 1 goto :failed
 
-echo [4/4] Downloading and validating the latest public HoYoLAB Teyvat snapshot...
+echo [4/4] Downloading HoYoLAB map, tiles and marker data...
 ".venv\Scripts\python.exe" hoyolab_updater.py
 if errorlevel 1 goto :failed
 
-echo Opening marker browser...
-".venv\Scripts\python.exe" hoyolab_browser.py --snapshot "%LOCALAPPDATA%\genshin-map-overlay\hoyolab\teyvat\markers.normalized.json" --progress-db "%LOCALAPPDATA%\genshin-map-overlay\hoyolab\progress.db"
+echo Starting Genshin Impact overlay...
+".venv\Scripts\python.exe" genshin.py --hoyolab-cache "%LOCALAPPDATA%\genshin-map-overlay\hoyolab\teyvat"
 if errorlevel 1 goto :failed
 exit /b 0
 
 :failed
 echo.
-echo Test launch failed. Read the error above, then send it to ChatGPT.
+echo Test launch failed. Read the error above, then send the full error text.
 pause
 exit /b 1
