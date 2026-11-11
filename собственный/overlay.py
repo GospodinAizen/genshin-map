@@ -81,7 +81,9 @@ class Overlay(QWidget):
             return
         if len(self.markers) > 5000:
             # At overview zoom a click target per marker would create a huge
-            # native region. Keep game input safe; zoom in or use the panel.
+            # native region. Restore click-through so the game never gets blocked.
+            self.interactive = False
+            self._apply_window_flags()
             self.clearMask()
             self.setToolTip("Слишком много меток для режима кликов. Приблизь карту или используй F6.")
             return
