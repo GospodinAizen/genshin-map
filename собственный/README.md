@@ -75,3 +75,13 @@ A minimap reference set is not interchangeable with a full-map tile set. It must
 ## Current status and limitations
 
 The map catalogue, minimap-localization foundation, and lossless HoYoLAB snapshot importer are implemented. The existing `genshin.py` runtime is still a legacy single-manifest runtime: automatic map discovery/switching, projection of HoYoLAB map coordinates into tile coordinates, and live client validation are not yet complete. Reference assets and exact minimap ROI depend on screen resolution and UI scale. Zoom, UI obstruction, repeated terrain, mixed DPI, and multiple monitors require real-device testing.
+
+## First user test (Windows)
+
+1. Install Python 3.11 or newer and enable the Python Launcher.
+2. Download this branch as a ZIP from GitHub and extract it.
+3. Open the `собственный` folder and double-click `Запустить_тест.bat`.
+4. The launcher creates a virtual environment, installs dependencies, downloads and validates the latest public Teyvat snapshot, then opens a searchable marker browser.
+5. Search categories/names and tick a marker. Close and reopen the browser: the found state should remain saved.
+
+The browser displays the original HoYoLAB label names and category hierarchy from the imported snapshot. It is a real test of snapshot download, import, browsing, search, and persistent progress. It is **not yet the in-game overlay**: source map coordinates are not yet transformed into the screen/tile coordinate system, and this launcher does not claim live marker projection or minimap detection. The existing `genshin.py` prototype remains separate and still needs manually prepared reference images.
