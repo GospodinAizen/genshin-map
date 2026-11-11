@@ -1,0 +1,30 @@
+[
+    {
+        "id": "demo_chest_001",
+        "name": "Сундук",
+        "type": "chest",
+        "x": 500,
+        "y": 400
+    },
+    {
+        "id": "demo_oculus_001",
+        "name": "Окул",
+        "type": "oculus",
+        "x": 800,
+        "y": 600
+    },
+    {
+        "id": "demo_quest_001",
+        "name": "Задание",
+        "type": "quest",
+        "x": 1000,
+        "y": 700
+    },
+    {
+        "id": "demo_puzzle_001",
+        "name": "Загадка",
+        "type": "puzzle",
+        "x": 1200,
+        "y": 500
+    }
+]
