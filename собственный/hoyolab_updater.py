@@ -139,7 +139,7 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
             runtime_ready = (
                 (target / "markers.runtime.json").is_file()
                 and (target / "references" / "manifest.json").is_file()
-                and (target / "references" / "teyvat_world_zoom_minus4.png").is_file()
+                and (target / "references" / "manifest.json").is_file()
             )
             if installed.get("tag") == asset["tag"] and runtime_ready:
                 return {"status": "current", "tag": asset["tag"], "path": str(target)}
