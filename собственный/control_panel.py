@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 from localization import display_name
 from marker_renderer import prepare_markers
+from map_viewer import MapViewer
 
 
 class ControlPanel(QDialog):
@@ -101,7 +102,6 @@ class ControlPanel(QDialog):
     def _open_map(self) -> None:
         if self.map_root is None:
             return
-        from map_viewer import MapViewer
         if self.map_viewer is None:
             self.map_viewer = MapViewer(self.map_root)
         self.map_viewer.show()
