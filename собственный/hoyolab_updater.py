@@ -196,7 +196,6 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
                 (target / "markers.runtime.json").is_file()
                 and (target / "references" / "manifest.json").is_file()
                 and "label_language" in installed
-                and (target / "references" / "manifest.json").is_file()
             )
             if installed.get("tag") == asset["tag"] and runtime_ready:
                 return {"status": "current", "tag": asset["tag"], "path": str(target)}
