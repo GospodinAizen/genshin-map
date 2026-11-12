@@ -75,7 +75,13 @@ class ScreenTracker:
                 continue
             score = inliers * ratio
             if best is None or score > best["score"]:
-                best = {"tile_id": tile.tile_id, "homography": h,\n                        "reference_origin": tile.reference_origin,\n                        "reference_scale": tile.reference_scale,\n                        "reference_zoom": int(round(np.log2(tile.reference_scale))),\n                        "matches": len(good),
+                best = {
+                    "tile_id": tile.tile_id,
+                    "homography": h,
+                    "reference_origin": tile.reference_origin,
+                    "reference_scale": tile.reference_scale,
+                    "reference_zoom": int(round(np.log2(tile.reference_scale))),
+                    "matches": len(good),
                         "inliers": inliers, "inlier_ratio": ratio, "confidence": ratio, "score": score}
 
         if best is None:
