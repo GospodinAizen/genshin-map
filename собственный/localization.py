@@ -29,7 +29,7 @@ _TRANSLATIONS = {
 }
 
 def contains_cjk(value: object) -> bool:
-    return any("\\u3400" <= char <= "\\u9fff" for char in str(value or ""))
+    return any("\u3400" <= char <= "\u9fff" for char in str(value or ""))
 
 def display_name(value: object, *, fallback: str = "Неизвестная категория") -> str:
     """Translate known labels; never leak untranslated Chinese into the UI."""
