@@ -11,8 +11,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt, QRectF
 from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap
 from PySide6.QtWidgets import (
-    QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView,
-    QMainWindow, QMessageBox,
+    QComboBox, QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView,
+    QMainWindow, QToolBar,
 )
 
 TILE_SIZE = 256
@@ -34,6 +34,7 @@ class MarkerLayer(QGraphicsItem):
         self.markers = markers
         self.asset_root = asset_root
         self.icon_cache: dict[str, QPixmap] = {}
+        self.active_floor = "all"
         self.bounds = bounds
         self.db = sqlite3.connect(progress_db)
         self.db.execute("""CREATE TABLE IF NOT EXISTS progress (
@@ -56,6 +57,8 @@ class MarkerLayer(QGraphicsItem):
         painter.setPen(pen)
         exposed = option.exposedRect.adjusted(-radius, -radius, radius, radius)
         for marker in self.markers:
+            if self.active_floor != "all" and str(marker.get("floor_id", "surface")) != self.active_floor:
+                continue
             x, y = marker.get("world_x"), marker.get("world_y")
             if x is None or y is None or not exposed.contains(float(x), float(y)):
                 continue
@@ -83,9 +86,15 @@ class MarkerLayer(QGraphicsItem):
                 painter.setBrush(QBrush(color))
                 painter.drawEllipse(QRectF(float(x)-radius, float(y)-radius, radius*2, radius*2))
 
+    def set_floor(self, floor_id: str) -> None:
+        self.active_floor = floor_id
+        self.update()
+
     def toggle_nearest(self, x: float, y: float, tolerance: float) -> dict | None:
         best, best_d2 = None, tolerance * tolerance
         for marker in self.markers:
+            if self.active_floor != "all" and str(marker.get("floor_id", "surface")) != self.active_floor:
+                continue
             if marker.get("world_x") is None or marker.get("world_y") is None:
                 continue
             dx, dy = float(marker["world_x"])-x, float(marker["world_y"])-y
@@ -241,6 +250,21 @@ class MapViewer(QMainWindow):
         self.setWindowTitle("Genshin Impact — карта")
         self.view = TiledMapView(map_root, self)
         self.setCentralWidget(self.view)
+        if self.view.marker_layer is not None:
+            toolbar = QToolBar("Слои карты", self)
+            self.addToolBar(toolbar)
+            floors = QComboBox(toolbar)
+            floors.addItem("Все этажи", "all")
+            unique = {}
+            for marker in self.view.marker_layer.markers:
+                fid = str(marker.get("floor_id", "surface"))
+                unique.setdefault(fid, str(marker.get("floor_label", fid)))
+            for fid, label in sorted(unique.items(), key=lambda item: (item[0] != "surface", item[0])):
+                floors.addItem(label, fid)
+            floors.currentIndexChanged.connect(
+                lambda index: self.view.marker_layer.set_floor(str(floors.itemData(index)))
+            )
+            toolbar.addWidget(floors)
         self.statusBar().showMessage(
             "Колесо — масштаб · перетаскивание — перемещение · ЛКМ по метке — найдено/не найдено · Shift+ЛКМ — перемещение"
         )
