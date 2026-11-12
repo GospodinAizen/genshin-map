@@ -56,7 +56,7 @@ def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
     assert result["reference_mosaics"] == 21
     assert result["markers"] == 1200
     assert result["markers_by_floor"] == {"surface": 1198, "z:-1": 1, "z:1": 1}
-    assert runtime[0]["tile_id"] == "teyvat_multiscale"
+    assert runtime[0]["tile_id"] == "teyvat_surface_multiscale"
     assert runtime[0]["x"] == 1000
     assert runtime[0]["y"] == 2000
     assert runtime[-2]["floor_id"] == "z:-1"
