@@ -269,9 +269,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=default_cache_dir())
     parser.add_argument("--check", action="store_true", help="Show latest upstream version without downloading.")
+    parser.add_argument("--self-test", action="store_true", help="Verify the packaged updater starts without network access.")
     parser.add_argument("--force", action="store_true", help="Reinstall even if this release is already cached.")
     parser.add_argument("--map-key", default="teyvat_surface")
     args = parser.parse_args()
+    if args.self_test:
+        # Exercise the packaged module imports and local safety primitives without
+        # depending on GitHub availability or anonymous API rate limits.
+        if MAX_ARCHIVE_BYTES <= 0 or MAX_EXTRACTED_BYTES <= 0 or not RELEASE_API.startswith("https://"):
+            raise RuntimeError("Updater configuration self-test failed.")
+        print("HoYoLAB updater executable: OK")
+        return 0
     if args.check:
         asset = latest_full_asset()
         print(json.dumps({k: asset[k] for k in ("tag", "name", "size", "published_at", "html_url")},
