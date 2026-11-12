@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +80,7 @@ def import_snapshot(input_dir: str | Path, *, map_key: str | None = None) -> dic
             skipped_unknown_labels += 1
             continue
         x, y = float(point["x"]), float(point["y"])
-        if not (x == x and y == y):
+        if not (math.isfinite(x) and math.isfinite(y)):
             raise ValueError(f"Non-finite coordinates for point {source_id}")
         marker = {
             "id": marker_id, "source": "hoyolab-public-map-snapshot",
@@ -89,6 +90,13 @@ def import_snapshot(input_dir: str | Path, *, map_key: str | None = None) -> dic
             "category_path": label["path"], "icon": label["icon"],
             "coordinate_space": "hoyolab_map", "map_x": x, "map_y": y,
         }
+        # Keep per-pin text when the upstream snapshot provides it; labels alone
+        # describe the category and are not a substitute for marker-specific notes.
+        description = point.get("description", point.get("desc"))
+        if isinstance(description, str) and description.strip():
+            marker["description"] = description.strip()
+        if point.get("name") is not None:
+            marker["source_point_name"] = str(point["name"])
         if point.get("z") is not None:
             marker["z"] = point["z"]
         markers.append(marker)
