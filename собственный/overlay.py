@@ -21,6 +21,7 @@ class Overlay(QWidget):
         self.detection: dict | None = None
         self.enabled_types = {str(marker.get('type', 'Other')) for marker in database.markers}
         self.interactive = False
+        self.active_floor_id = "surface"
         self.toggle_requested.connect(self.toggle)
         self.interaction_requested.connect(self.toggle_interaction)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -65,7 +66,7 @@ class Overlay(QWidget):
         ox, oy = detection["monitor_origin"]
         width, height = detection["monitor_size"]
         self.setGeometry(ox, oy, width, height)
-        self.markers = prepare_markers(self.database.get_markers(), detection,
+        self.markers = prepare_markers(self.database.get_markers(floor_id=self.active_floor_id), detection,
                                        self.database.get_found_ids(), self.enabled_types)
         self._update_hit_region()
         self.update()
@@ -93,6 +94,10 @@ class Overlay(QWidget):
         for marker in self.markers:
             region = region.united(QRegion(self._marker_rect(marker)))
         self.setMask(region)
+
+    def set_floor(self, floor_id: str) -> None:
+        self.active_floor_id = floor_id
+        self.update_detection(self.detection)
 
     def set_category_enabled(self, category: str, enabled: bool) -> None:
         if enabled:
