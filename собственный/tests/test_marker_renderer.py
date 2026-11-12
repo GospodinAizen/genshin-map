@@ -13,7 +13,7 @@ def test_prepare_markers_projects_and_culls_to_viewport():
          "type": "Exploration", "x": 50, "y": 60, "name": "Found"},
         {"id": "wrong-type", "tile_id": "world", "map_id": "teyvat_surface",
          "type": "Resources", "x": 50, "y": 60, "name": "Wrong type"},
-        {"id": "wrong-map", "tile_id": "other", "map_id": "teyvat_surface",
+        {"id": "wrong-map", "tile_id": "other", "map_id": "other_map",
          "type": "Exploration", "x": 50, "y": 60, "name": "Wrong tile"},
     ]
     detection = {
@@ -33,4 +33,4 @@ def test_prepare_markers_projects_and_culls_to_viewport():
 def test_prepare_markers_returns_empty_without_detection_or_candidates():
     marker = {"id": "a", "tile_id": "world", "type": "Exploration", "x": 1, "y": 2}
     assert prepare_markers([marker], None, set(), {"Exploration"}) == []
-    assert prepare_markers([marker], {"tile_id": "elsewhere"}, set(), {"Exploration"}) == []
+    assert prepare_markers([marker], {"tile_id": "elsewhere"}, set(), {"Other"}) == []
