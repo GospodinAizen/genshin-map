@@ -35,6 +35,7 @@ class MarkerLayer(QGraphicsItem):
         self.asset_root = asset_root
         self.icon_cache: dict[str, QPixmap] = {}
         self.active_floor = "all"
+        self.active_category = "all"
         self.bounds = bounds
         self.db = sqlite3.connect(progress_db)
         self.db.execute("""CREATE TABLE IF NOT EXISTS progress (
@@ -58,6 +59,8 @@ class MarkerLayer(QGraphicsItem):
         exposed = option.exposedRect.adjusted(-radius, -radius, radius, radius)
         for marker in self.markers:
             if self.active_floor != "all" and str(marker.get("floor_id", "surface")) != self.active_floor:
+                continue
+            if self.active_category != "all" and str(marker.get("type", "Other")) != self.active_category:
                 continue
             x, y = marker.get("world_x"), marker.get("world_y")
             if x is None or y is None or not exposed.contains(float(x), float(y)):
@@ -90,10 +93,16 @@ class MarkerLayer(QGraphicsItem):
         self.active_floor = floor_id
         self.update()
 
+    def set_category(self, category: str) -> None:
+        self.active_category = category
+        self.update()
+
     def toggle_nearest(self, x: float, y: float, tolerance: float) -> dict | None:
         best, best_d2 = None, tolerance * tolerance
         for marker in self.markers:
             if self.active_floor != "all" and str(marker.get("floor_id", "surface")) != self.active_floor:
+                continue
+            if self.active_category != "all" and str(marker.get("type", "Other")) != self.active_category:
                 continue
             if marker.get("world_x") is None or marker.get("world_y") is None:
                 continue
@@ -265,6 +274,14 @@ class MapViewer(QMainWindow):
                 lambda index: self.view.marker_layer.set_floor(str(floors.itemData(index)))
             )
             toolbar.addWidget(floors)
+            categories = QComboBox(toolbar)
+            categories.addItem("Все категории", "all")
+            for category in sorted({str(m.get("type", "Other")) for m in self.view.marker_layer.markers}):
+                categories.addItem(category, category)
+            categories.currentIndexChanged.connect(
+                lambda index: self.view.marker_layer.set_category(str(categories.itemData(index)))
+            )
+            toolbar.addWidget(categories)
         self.statusBar().showMessage(
             "Колесо — масштаб · перетаскивание — перемещение · ЛКМ по метке — найдено/не найдено · Shift+ЛКМ — перемещение"
         )
