@@ -93,7 +93,9 @@ class ScreenTracker:
 
     def _on_miss(self) -> dict | None:
         self._misses += 1
-        if self._misses >= 3:\n            self._last_tile_id = None\n        # Do not display stale positions indefinitely; tolerate one missed frame.
+        if self._misses >= 3:
+            self._last_tile_id = None
+        # Do not display stale positions indefinitely; tolerate one missed frame.
         if self._misses <= 1 and self._last_detection is not None:
             return self._last_detection
         self._last_detection = None
