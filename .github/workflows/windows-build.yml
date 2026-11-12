@@ -1,0 +1,70 @@
+name: Windows portable build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [architecture-v2]
+    paths:
+      - "собственный/**"
+      - ".github/workflows/windows-build.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+      - name: Install dependencies and test
+        working-directory: собственный
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest pyinstaller
+          python -m compileall -q .
+          pytest -q
+      - name: Build desktop overlay
+        working-directory: собственный
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onedir --windowed --name GenshinMapOverlay --collect-all PySide6 --collect-all pynput genshin.py
+      - name: Build HoYoLAB updater
+        working-directory: собственный
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --console --name hoyolab_updater --distpath dist --workpath build-updater hoyolab_updater.py
+      - name: Assemble portable folder
+        working-directory: собственный
+        shell: pwsh
+        run: |
+          Copy-Item "Запустить_portable.bat" "dist/Запустить.bat"
+          Copy-Item README.md "dist/README.md"
+          @'
+          @echo off
+          "%~dp0hoyolab_updater.exe"
+          if errorlevel 1 (
+            echo.
+            echo Не удалось обновить карту HoYoLAB. Проверьте интернет и повторите запуск.
+            pause
+            exit /b 1
+          )
+          start "" "%~dp0GenshinMapOverlay/GenshinMapOverlay.exe" --hoyolab-cache "%LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat"
+          '@ | Set-Content -Encoding ascii "dist/Запустить.bat"
+          if (!(Test-Path "dist/GenshinMapOverlay/GenshinMapOverlay.exe")) { throw "Overlay executable missing" }
+          if (!(Test-Path "dist/hoyolab_updater.exe")) { throw "Updater executable missing" }
+      - name: Smoke-test updater executable
+        working-directory: собственный
+        shell: pwsh
+        run: |
+          & "dist/hoyolab_updater.exe" --check
+          if ($LASTEXITCODE -ne 0) { throw "Updater smoke test failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GenshinMapOverlay-Windows-x64
+          path: собственный/dist/
+          if-no-files-found: error
+          retention-days: 30
