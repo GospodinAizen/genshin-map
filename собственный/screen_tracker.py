@@ -14,7 +14,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ScreenTracker:
-    def __init__(self, manifest_path: str | Path, *, max_features: int = 3500,
+    def __init__(self, manifest_path: str | Path, *, max_features: int = 1400,
                  ratio_test: float = 0.74, min_matches: int = 14,
                  min_inliers: int = 11, min_inlier_ratio: float = 0.35) -> None:
         self.manager = ReferenceManager(manifest_path, max_features=max_features,
@@ -93,7 +93,7 @@ class ScreenTracker:
 
     def _on_miss(self) -> dict | None:
         self._misses += 1
-        # Do not display stale positions indefinitely; tolerate one missed frame.
+        if self._misses >= 3:\n            self._last_tile_id = None\n        # Do not display stale positions indefinitely; tolerate one missed frame.
         if self._misses <= 1 and self._last_detection is not None:
             return self._last_detection
         self._last_detection = None
