@@ -24,6 +24,7 @@ MAX_ARCHIVE_BYTES = 300 * 1024 * 1024
 MAX_EXTRACTED_BYTES = 1024 * 1024 * 1024
 MAX_ARCHIVE_MEMBERS = 100_000
 USER_AGENT = "GenshinMapOverlay/0.1 (public snapshot updater)"
+LABEL_API = "https://waf-api-takumi.mihoyo.com/common/map_user/ys_obc/v2/map/label/tree?map_id=2&app_sn=ys_obc&lang=ru-ru"
 
 
 def _request(url: str, *, accept: str = "application/vnd.github+json"):
@@ -31,6 +32,61 @@ def _request(url: str, *, accept: str = "application/vnd.github+json"):
         url, headers={"User-Agent": USER_AGENT, "Accept": accept}
     )
     return urllib.request.urlopen(request, timeout=60)
+
+
+def refresh_russian_labels(snapshot_dir: Path) -> str:
+    """Use HoYoLAB's own Russian label locale when the public endpoint serves it."""
+    labels_path = snapshot_dir / "labels.json"
+    original = json.loads(labels_path.read_text(encoding="utf-8"))
+    icon_by_id: dict[str, str] = {}
+
+    def collect_icons(nodes: list[dict[str, Any]]) -> None:
+        for node in nodes:
+            if node.get("icon"):
+                icon_by_id[str(node.get("id"))] = node["icon"]
+            collect_icons(node.get("children") or [])
+
+    collect_icons(original)
+    try:
+        request = urllib.request.Request(
+            LABEL_API,
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://act.mihoyo.com/"},
+        )
+        with urllib.request.urlopen(request, timeout=25) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if payload.get("retcode") != 0:
+            raise RuntimeError(f"HoYoLAB label API returned retcode {payload.get('retcode')}")
+        tree = payload.get("data", {}).get("tree")
+        if not isinstance(tree, list) or not tree:
+            raise RuntimeError("HoYoLAB returned an empty Russian label tree")
+
+        def contains_cjk(nodes: list[dict[str, Any]]) -> bool:
+            for node in nodes:
+                if any("\\u3400" <= char <= "\\u9fff" for char in str(node.get("name", ""))):
+                    return True
+                if contains_cjk(node.get("children") or []):
+                    return True
+            return False
+
+        if contains_cjk(tree):
+            raise RuntimeError("HoYoLAB returned Chinese labels for the Russian locale")
+
+        def restore_local_icons(nodes: list[dict[str, Any]]) -> None:
+            for node in nodes:
+                local_icon = icon_by_id.get(str(node.get("id")))
+                if local_icon:
+                    node["icon"] = local_icon
+                restore_local_icons(node.get("children") or [])
+
+        restore_local_icons(tree)
+        labels_path.write_text(
+            json.dumps(tree, ensure_ascii=False, separators=(",", ":")) + "\\n",
+            encoding="utf-8",
+        )
+        return "ru-ru"
+    except Exception as exc:
+        print(f"Russian HoYoLAB labels unavailable; using source labels: {exc}")
+        return "zh-cn"
 
 
 def latest_full_asset() -> dict[str, Any]:
@@ -139,6 +195,7 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
             runtime_ready = (
                 (target / "markers.runtime.json").is_file()
                 and (target / "references" / "manifest.json").is_file()
+                and "label_language" in installed
                 and (target / "references" / "manifest.json").is_file()
             )
             if installed.get("tag") == asset["tag"] and runtime_ready:
@@ -152,6 +209,7 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
         archive_path = work / asset["name"]
         archive_sha = download_asset(asset, archive_path)
         extracted = safe_extract(archive_path, work / "extracted")
+        label_language = refresh_russian_labels(extracted)
         normalized = import_snapshot(extracted, map_key=map_key)
         if normalized["point_count"] < 1000:
             raise RuntimeError(f"Snapshot validation failed: only {normalized['point_count']} known points.")
@@ -161,6 +219,7 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
         )
         metadata = {**{k: asset[k] for k in ("tag", "name", "published_at", "html_url")},
                     "archive_sha256": archive_sha, "map_key": map_key,
+                    "label_language": label_language,
                     "point_count": normalized["point_count"]}
         (extracted / "upstream-release.json").write_text(
             json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
