@@ -7,7 +7,7 @@ from marker_renderer import prepare_markers
 
 from PySide6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QVBoxLayout,
+    QMessageBox, QPushButton, QVBoxLayout, QScrollArea, QWidget,
 )
 
 
@@ -30,6 +30,11 @@ class ControlPanel(QDialog):
         root = QVBoxLayout(self)
         root.addWidget(QLabel("Категории меток"))
         self.category_checks = {}
+        category_scroll = QScrollArea()
+        category_scroll.setWidgetResizable(True)
+        category_scroll.setMaximumHeight(260)
+        category_widget = QWidget()
+        category_layout = QVBoxLayout(category_widget)
         categories = sorted({str(m.get("type", "Other")) for m in database.markers})
         for category in categories:
             checkbox = QCheckBox(display_name(category))
@@ -38,7 +43,10 @@ class ControlPanel(QDialog):
                 lambda enabled, kind=category: self.overlay.set_category_enabled(kind, enabled)
             )
             self.category_checks[category] = checkbox
-            root.addWidget(checkbox)
+            category_layout.addWidget(checkbox)
+        category_layout.addStretch(1)
+        category_scroll.setWidget(category_widget)
+        root.addWidget(category_scroll)
 
         root.addWidget(QLabel("Объекты текущего участка"))
         self.status_label = QLabel(
