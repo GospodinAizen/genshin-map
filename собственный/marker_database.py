@@ -29,6 +29,8 @@ class MarkerDatabase:
                 **marker,
                 "id": marker_id,
                 "map_id": str(marker.get("map_id", "teyvat_surface")),
+                "floor_id": str(marker.get("floor_id", "surface")),
+                "floor_label": str(marker.get("floor_label", "Поверхность")),
                 "tile_id": str(marker.get("tile_id", "mondstadt_01")),
                 "x": float(marker["x"]),
                 "y": float(marker["y"]),
@@ -41,10 +43,19 @@ class MarkerDatabase:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
         self.connection.commit()
 
-    def get_markers(self, map_id: str | None = None) -> list[dict]:
-        if map_id is None:
-            return list(self.markers)
-        return [m for m in self.markers if m["map_id"] == map_id]
+    def get_markers(self, map_id: str | None = None, floor_id: str | None = None) -> list[dict]:
+        selected = self.markers
+        if map_id is not None:
+            selected = [m for m in selected if m["map_id"] == map_id]
+        if floor_id is not None:
+            selected = [m for m in selected if m["floor_id"] == floor_id]
+        return list(selected)
+
+    def get_floors(self) -> list[tuple[str, str]]:
+        floors = {}
+        for marker in self.markers:
+            floors.setdefault(marker["floor_id"], marker["floor_label"])
+        return sorted(floors.items(), key=lambda item: (item[0] != "surface", item[0]))
 
     def get_found_ids(self) -> set[str]:
         with self._lock:
