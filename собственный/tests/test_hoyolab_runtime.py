@@ -5,27 +5,34 @@ import json
 import cv2
 import numpy as np
 
-from hoyolab_runtime import TILE_ID, build_runtime_assets
+from hoyolab_runtime import build_runtime_assets
 from reference_manager import ReferenceManager
 
 
-def test_builds_official_world_reference_and_runtime_markers(tmp_path):
+def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
     root = tmp_path
-    (root / "tiles").mkdir()
+    tiles_dir = root / "tiles"
+    tiles_dir.mkdir()
     meta = {
         "mapId": 2,
         "mapVersion": "test-version",
         "origin": [160, 320],
-        "totalSize": [32768, 32768],
+        "totalSize": [12288, 12288],
+        "minZoom": -4,
+        "maxZoom": -2,
     }
     (root / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
 
-    # Eight zoom -4 tiles satisfy the minimum coverage guard. Use textured
-    # tiles so ORB can index the stitched reference as the real tracker will.
     rng = np.random.default_rng(7)
-    for tx, ty in [(x, y) for y in range(2) for x in range(4)]:
-        tile = rng.integers(0, 256, (256, 256, 3), dtype=np.uint8)
-        assert cv2.imwrite(str(root / "tiles" / f"{tx}_{ty}_N4.webp"), tile)
+    for zoom in range(-4, -1):
+        scale = 2 ** zoom
+        cols = int(meta["totalSize"][0] * scale / 256)
+        rows = int(meta["totalSize"][1] * scale / 256)
+        suffix = f"N{abs(zoom)}"
+        for ty in range(rows):
+            for tx in range(cols):
+                tile = rng.integers(0, 256, (256, 256, 3), dtype=np.uint8)
+                assert cv2.imwrite(str(tiles_dir / f"{tx}_{ty}_{suffix}.webp"), tile)
 
     markers = []
     for index in range(1200):
@@ -38,21 +45,24 @@ def test_builds_official_world_reference_and_runtime_markers(tmp_path):
             "z": 0,
             "source_point_id": str(index),
         })
-    normalized = {"markers": markers}
     (root / "markers.normalized.json").write_text(
-        json.dumps(normalized), encoding="utf-8"
+        json.dumps({"markers": markers}), encoding="utf-8"
     )
 
     result = build_runtime_assets(root)
     runtime = json.loads((root / "markers.runtime.json").read_text(encoding="utf-8"))
     manifest = json.loads((root / "references" / "manifest.json").read_text(encoding="utf-8"))
 
-    assert result["tiles_loaded"] == 8
+    assert result["reference_mosaics"] == 21
     assert result["markers"] == 1200
-    assert runtime[0]["tile_id"] == TILE_ID
-    assert runtime[0]["x"] == (1000 + 160) / 16
-    assert runtime[0]["y"] == (2000 + 320) / 16
-    assert manifest["tiles"][0]["id"] == TILE_ID
+    assert runtime[0]["tile_id"] == "teyvat_multiscale"
+    assert runtime[0]["x"] == 1000
+    assert runtime[0]["y"] == 2000
+    assert runtime[0]["world_x"] == 1160
+    assert manifest["zoom_range"] == [-4, -2]
+    assert manifest["reference_mosaics"] == 21
 
-    manager = ReferenceManager(root / "references" / "manifest.json")
-    assert TILE_ID in manager.tiles
+    manager = ReferenceManager(root / "references" / "manifest.json", max_features=100)
+    assert len(manager.tiles) == 21
+    assert any(tile.reference_scale == 1 for tile in manager.tiles.values())
+    assert any(tile.reference_scale == 0.25 for tile in manager.tiles.values())
