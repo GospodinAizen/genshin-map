@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtWidgets import (
+from localization import display_name
+
+from PySide6.QtWidgets(
     QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout,
 )
@@ -29,7 +31,7 @@ class ControlPanel(QDialog):
         self.category_checks = {}
         categories = sorted({str(m.get("type", "Other")) for m in database.markers})
         for category in categories:
-            checkbox = QCheckBox(category)
+            checkbox = QCheckBox(display_name(category))
             checkbox.setChecked(True)
             checkbox.toggled.connect(
                 lambda enabled, kind=category: self.overlay.set_category_enabled(kind, enabled)
@@ -38,7 +40,9 @@ class ControlPanel(QDialog):
             root.addWidget(checkbox)
 
         root.addWidget(QLabel("Объекты текущего участка"))
-        self.status_label = QLabel("Ожидание распознавания карты…")
+        self.status_label = QLabel(
+            f"Загружено меток: {len(database.markers)}. Ожидание распознавания карты…"
+        )
         root.addWidget(self.status_label)
         self.marker_list = QListWidget()
         self.marker_list.itemChanged.connect(self._marker_changed)
@@ -67,7 +71,10 @@ class ControlPanel(QDialog):
         if detection is None:
             self._tile_id = None
             self._found_snapshot = set()
-            self.status_label.setText("Карта не распознана")
+            self.status_label.setText(
+                f"Карта не распознана · в базе {len(self.database.markers)} меток. "
+                "Проверьте, открыта ли игровая карта"
+            )
             self.marker_list.clear()
             return
 
@@ -85,7 +92,9 @@ class ControlPanel(QDialog):
         self._loading = True
         self.marker_list.clear()
         for marker in markers[:1000]:
-            item = QListWidgetItem(f'{marker["name"]}  [{marker["type"]}]')
+            item = QListWidgetItem(
+                f'{display_name(marker["name"])}  [{display_name(marker["type"])}]'
+            )
             item.setData(Qt.ItemDataRole.UserRole, marker["id"])
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(
