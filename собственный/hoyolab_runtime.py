@@ -15,7 +15,7 @@ import cv2
 import numpy as np
 
 TILE_SIZE = 256
-BLOCK_TILES = 3
+BLOCK_TILES = 4
 LEGACY_TILE_ID = "teyvat_world_zoom_minus4"
 
 
