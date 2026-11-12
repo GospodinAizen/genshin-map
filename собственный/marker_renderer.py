@@ -16,19 +16,23 @@ def prepare_markers(markers: list[dict], detection: dict | None,
     active_map = detection.get("map_id")
     candidates = [
         marker for marker in markers
-        if marker["tile_id"] == detection["tile_id"]
-        and marker["id"] not in found_ids
+        if marker["id"] not in found_ids
         and marker["type"] in enabled_types
         and (active_map is None or marker.get("map_id", "teyvat_surface") == active_map)
     ]
     if not candidates:
         return []
 
-    # Transform all source points in one OpenCV call, then cull off-screen markers.
-    # The official Teyvat snapshot contains tens of thousands of points; one
-    # perspectiveTransform per marker would stall the overlay every refresh.
+    # A detection is anchored to one multiscale mosaic. Project every surface
+    # marker through that mosaic's zoom and map-space origin; off-screen points
+    # are culled below. This also draws points that lie in neighboring mosaics.
+    scale = float(detection.get("reference_scale", 1.0))
+    origin_x, origin_y = detection.get("reference_origin", (0.0, 0.0))
     source = np.asarray(
-        [[[marker["x"], marker["y"]]] for marker in candidates],
+        [[[
+            float(marker.get("world_x", marker["x"])) * scale - origin_x,
+            float(marker.get("world_y", marker["y"])) * scale - origin_y,
+        ]] for marker in candidates],
         dtype=np.float32,
     )
     projected = cv2.perspectiveTransform(source, detection["homography"]).reshape(-1, 2)
