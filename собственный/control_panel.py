@@ -33,7 +33,7 @@ class ControlPanel(QDialog):
         self.toggle_requested.connect(self.toggle)
 
         root = QVBoxLayout(self)
-        self.open_map_button = QPushButton("Открыть цельную карту")
+        self.open_map_button = QPushButton("Открыть подробную карту")
         self.open_map_button.setEnabled(map_root is not None and (map_root / "meta.json").is_file())
         self.open_map_button.clicked.connect(self._open_map)
         root.addWidget(self.open_map_button)
