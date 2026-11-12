@@ -21,5 +21,5 @@ def test_neighbor_tiles_are_prioritized(tmp_path):
         ]
     }), encoding="utf-8")
     manager = ReferenceManager(manifest, max_features=500, min_features=10)
-    assert [tile.tile_id for tile in manager.candidates("a")] == ["a", "b", "c"]
+    assert [tile.tile_id for tile in manager.candidates("a")] == ["a", "b"]
     assert [tile.tile_id for tile in manager.candidates(None)] == ["a", "b", "c"]
