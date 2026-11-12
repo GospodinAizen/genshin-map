@@ -14,7 +14,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ScreenTracker:
-    def __init__(self, manifest_path: str | Path, *, max_features: int = 1400,
+    def __init__(self, manifest_path: str | Path, *, max_features: int = 900,
                  ratio_test: float = 0.74, min_matches: int = 14,
                  min_inliers: int = 11, min_inlier_ratio: float = 0.35) -> None:
         self.manager = ReferenceManager(manifest_path, max_features=max_features,
