@@ -184,8 +184,13 @@ class ControlPanel(QDialog):
         self.setVisible(not self.isVisible())
 
     @Slot(str)
+    def show_status(self, message: str) -> None:
+        if self.detection is None:
+            self.status_label.setText(message)
+
+    @Slot(str)
     def show_error(self, message: str) -> None:
-        self.status_label.setText(f"ОШИБКА распознавания: {message}")
+        self.status_label.setText(f"ОШИБКА: {message}")
 
     def closeEvent(self, event) -> None:
         event.ignore()
