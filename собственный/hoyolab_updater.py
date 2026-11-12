@@ -117,6 +117,7 @@ def download_asset(asset: dict[str, Any], destination: Path) -> str:
     destination.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
     total = 0
+    last_reported = -1
     fd, temporary_name = tempfile.mkstemp(prefix="snapshot-", suffix=".part", dir=destination.parent)
     try:
         with os.fdopen(fd, "wb") as output, _request(asset["url"], accept="application/octet-stream") as response:
@@ -129,6 +130,10 @@ def download_asset(asset: dict[str, Any], destination: Path) -> str:
                     raise RuntimeError("Downloaded archive exceeded the safety size limit.")
                 digest.update(chunk)
                 output.write(chunk)
+                percent = int(total * 100 / max(asset["size"], 1))
+                if percent >= last_reported + 10:
+                    print(f"  Загрузка: {percent}% ({total:,}/{asset['size']:,} байт)", flush=True)
+                    last_reported = percent
         if total != asset["size"]:
             raise RuntimeError(f"Archive size mismatch: expected {asset['size']}, received {total}.")
         actual = digest.hexdigest()
@@ -186,7 +191,9 @@ def safe_extract(archive_path: Path, destination: Path) -> Path:
 
 
 def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyvat_surface") -> dict[str, Any]:
+    print("[1/6] Проверка последнего снимка HoYoLAB...", flush=True)
     asset = latest_full_asset()
+    print(f"[2/6] Найден снимок {asset['tag']} ({asset['size']:,} байт)", flush=True)
     target = cache_dir / "teyvat"
     version_file = target / "upstream-release.json"
     if not force and version_file.is_file():
@@ -195,7 +202,7 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
             runtime_ready = (
                 (target / "markers.runtime.json").is_file()
                 and (target / "references" / "manifest.json").is_file()
-                and "label_language" in installed
+                and installed.get("localization_schema", 0) >= 2
             )
             if installed.get("tag") == asset["tag"] and runtime_ready:
                 return {"status": "current", "tag": asset["tag"], "path": str(target)}
@@ -206,8 +213,11 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
     with tempfile.TemporaryDirectory(prefix="hoyolab-update-", dir=cache_dir) as temp:
         work = Path(temp)
         archive_path = work / asset["name"]
+        print("[3/6] Загрузка архива карты...", flush=True)
         archive_sha = download_asset(asset, archive_path)
+        print("[4/6] Проверка архива и распаковка...", flush=True)
         extracted = safe_extract(archive_path, work / "extracted")
+        print("[5/6] Перевод категорий и импорт маркеров...", flush=True)
         label_language = refresh_russian_labels(extracted)
         normalized = import_snapshot(extracted, map_key=map_key)
         if normalized["point_count"] < 1000:
@@ -218,11 +228,12 @@ def install_latest(cache_dir: Path, *, force: bool = False, map_key: str = "teyv
         )
         metadata = {**{k: asset[k] for k in ("tag", "name", "published_at", "html_url")},
                     "archive_sha256": archive_sha, "map_key": map_key,
-                    "label_language": label_language,
+                    "label_language": label_language, "localization_schema": 2,
                     "point_count": normalized["point_count"]}
         (extracted / "upstream-release.json").write_text(
             json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
+        print("[6/6] Построение эталонов распознавания карты (может занять несколько минут)...", flush=True)
         runtime = build_runtime_assets(extracted)
         metadata["runtime"] = runtime
         (extracted / "upstream-release.json").write_text(
