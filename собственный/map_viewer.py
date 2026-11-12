@@ -29,9 +29,11 @@ def _category_color(value: str) -> QColor:
 
 class MarkerLayer(QGraphicsItem):
     """One paint item for the whole catalogue: avoids tens of thousands of scene items."""
-    def __init__(self, markers: list[dict], progress_db: Path, bounds: QRectF):
+    def __init__(self, markers: list[dict], progress_db: Path, bounds: QRectF, asset_root: Path):
         super().__init__()
         self.markers = markers
+        self.asset_root = asset_root
+        self.icon_cache: dict[str, QPixmap] = {}
         self.bounds = bounds
         self.db = sqlite3.connect(progress_db)
         self.db.execute("""CREATE TABLE IF NOT EXISTS progress (
@@ -57,10 +59,29 @@ class MarkerLayer(QGraphicsItem):
             x, y = marker.get("world_x"), marker.get("world_y")
             if x is None or y is None or not exposed.contains(float(x), float(y)):
                 continue
-            found = marker["id"] in self.found
-            color = QColor(115, 120, 125, 150) if found else _category_color(str(marker.get("type", "Other")))
-            painter.setBrush(QBrush(color))
-            painter.drawEllipse(QRectF(float(x)-radius, float(y)-radius, radius*2, radius*2))
+            icon_rel = marker.get("icon")
+            icon = None
+            if icon_rel:
+                key = str(icon_rel)
+                if key not in self.icon_cache:
+                    icon_path = (self.asset_root / key).resolve()
+                    try:
+                        icon_path.relative_to(self.asset_root.resolve())
+                        self.icon_cache[key] = QPixmap(str(icon_path))
+                    except ValueError:
+                        self.icon_cache[key] = QPixmap()
+                icon = self.icon_cache[key]
+            if icon is not None and not icon.isNull():
+                side = 22.0 / scale
+                if marker["id"] in self.found:
+                    painter.setOpacity(0.35)
+                painter.drawPixmap(QRectF(float(x)-side/2, float(y)-side/2, side, side), icon, QRectF(icon.rect()))
+                painter.setOpacity(1.0)
+            else:
+                found = marker["id"] in self.found
+                color = QColor(115, 120, 125, 150) if found else _category_color(str(marker.get("type", "Other")))
+                painter.setBrush(QBrush(color))
+                painter.drawEllipse(QRectF(float(x)-radius, float(y)-radius, radius*2, radius*2))
 
     def toggle_nearest(self, x: float, y: float, tolerance: float) -> dict | None:
         best, best_d2 = None, tolerance * tolerance
@@ -130,7 +151,7 @@ class TiledMapView(QGraphicsView):
         markers = json.loads(marker_file.read_text(encoding="utf-8"))
         if not isinstance(markers, list):
             raise ValueError("markers.runtime.json должен содержать массив.")
-        self.marker_layer = MarkerLayer(markers, self.map_root / "progress.db", self.map_bounds)
+        self.marker_layer = MarkerLayer(markers, self.map_root / "progress.db", self.map_bounds, self.map_root)
         self.scene.addItem(self.marker_layer)
         self.setWindowTitle(f"Genshin Impact — карта · {len(markers):,} меток")
 
