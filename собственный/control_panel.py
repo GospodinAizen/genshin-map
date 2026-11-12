@@ -14,10 +14,12 @@ from marker_renderer import prepare_markers
 class ControlPanel(QDialog):
     toggle_requested = Signal()
 
-    def __init__(self, database, overlay) -> None:
+    def __init__(self, database, overlay, map_root=None) -> None:
         super().__init__()
         self.database = database
         self.overlay = overlay
+        self.map_root = map_root
+        self.map_viewer = None
         self._loading = False
         self._tile_id = None
         self._floor_id = "surface"
@@ -30,6 +32,11 @@ class ControlPanel(QDialog):
         self.toggle_requested.connect(self.toggle)
 
         root = QVBoxLayout(self)
+        self.open_map_button = QPushButton("Открыть цельную карту")
+        self.open_map_button.setEnabled(map_root is not None and (map_root / "meta.json").is_file())
+        self.open_map_button.clicked.connect(self._open_map)
+        root.addWidget(self.open_map_button)
+
         root.addWidget(QLabel("Определение этажа"))
         self.floor_combo = QComboBox()
         self.floor_combo.addItem("Авто: поверхность", "auto")
@@ -89,6 +96,17 @@ class ControlPanel(QDialog):
         help_text = QLabel("M — оверлей · F6 — панель · F7 — клики по меткам\nЛКМ — найдено · ПКМ — вернуть метку")
         help_text.setStyleSheet("color: #888;")
         root.addWidget(help_text)
+
+    @Slot()
+    def _open_map(self) -> None:
+        if self.map_root is None:
+            return
+        from map_viewer import MapViewer
+        if self.map_viewer is None:
+            self.map_viewer = MapViewer(self.map_root)
+        self.map_viewer.show()
+        self.map_viewer.raise_()
+        self.map_viewer.activateWindow()
 
     def _refresh_progress(self) -> None:
         total = len(self.database.markers)
