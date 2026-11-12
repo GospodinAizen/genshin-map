@@ -83,8 +83,8 @@ class TiledMapView(QGraphicsView):
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def wheelEvent(self, event) -> None:
-        before = self.transform().m11()
-        super().wheelEvent(event)
+        factor = 1.2 if event.angleDelta().y() > 0 else 1.0 / 1.2
+        self.scale(factor, factor)
         after = self.transform().m11()
         if after <= 0:
             return
