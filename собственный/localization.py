@@ -1,7 +1,7 @@
-"""Russian display names for common HoYoLAB marker labels.
+"""Russian display names for HoYoLAB marker labels.
 
-Unknown source labels are kept intact rather than silently mislabelled.
-The source label and ID remain unchanged in the imported catalogue.
+Unknown CJK labels are replaced in the UI by an ID-based Russian placeholder;
+the original source text remains available in source_name for diagnostics.
 """
 from __future__ import annotations
 
@@ -22,25 +22,23 @@ _TRANSLATIONS = {
     "书籍": "Книга", "宝箱怪": "Мимик", "猫": "Кошка", "狗": "Собака",
     "锚点": "Точка телепортации", "探索": "Исследование",
     "传送点": "Точки телепортации", "贵重收集物": "Ценные коллекционные предметы",
-    "解谜": "Головоломки", "冒险": "Приключения", "任务": "Задания",
-    "世界探索": "Исследование мира", "敌人": "Противники", "生物": "Существа",
-    "区域特产": "Региональные диковинки", "贵重物品": "Ценные предметы",
-    "收集物": "Коллекционные предметы", "矿物": "Руды и минералы",
-    "植物": "Растения", "食物": "Еда", "钓鱼": "Рыбалка",
-    "地形": "Места и объекты", "机关": "Механизмы", "挑战": "Испытания",
-    "秘境": "Подземелья", "观景点": "Точки обзора",
+    "冒险": "Приключения", "任务": "Задания", "世界探索": "Исследование мира",
+    "生物": "Существа", "贵重物品": "Ценные предметы", "收集物": "Коллекционные предметы",
+    "食物": "Еда", "钓鱼": "Рыбалка", "地形": "Места и объекты",
     "其他": "Другое", "全部": "Все",
 }
 
-def display_name(value: object) -> str:
-    """Translate known Chinese labels and preserve unknown names safely."""
-    text = str(value or "Другое").strip()
+def contains_cjk(value: object) -> bool:
+    return any("\\u3400" <= char <= "\\u9fff" for char in str(value or ""))
+
+def display_name(value: object, *, fallback: str = "Неизвестная категория") -> str:
+    """Translate known labels; never leak untranslated Chinese into the UI."""
+    text = str(value or "").strip()
     if not text:
-        return "Другое"
+        return fallback
     if text in _TRANSLATIONS:
         return _TRANSLATIONS[text]
-    # HoYoLAB labels often include a translated term plus a qualifier.
     for source in sorted(_TRANSLATIONS, key=len, reverse=True):
         if source in text:
-            return text.replace(source, _TRANSLATIONS[source])
-    return text
+            text = text.replace(source, _TRANSLATIONS[source])
+    return fallback if contains_cjk(text) else text
