@@ -33,7 +33,9 @@ class ReferenceManager:
                 "and add your own map crops under references/tiles/."
             )
         config = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-        self.monitor_index = int(config.get("monitor_index", 1))
+        self.monitor_index = config.get("monitor_index", "auto")
+        if self.monitor_index != "auto":
+            self.monitor_index = int(self.monitor_index)
         self.tiles: dict[str, ReferenceTile] = {}
         orb = cv2.ORB_create(nfeatures=max_features, scaleFactor=1.2,
                              nlevels=8, fastThreshold=12)
