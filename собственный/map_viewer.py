@@ -13,7 +13,7 @@ from PySide6.QtGui import QPixmap
 
 
 TILE_SIZE = 256
-CHUNK_SIZE = 128
+CHUNK_SIZE = 64
 _TILE_RE = re.compile(r"^(\d+)_(\d+)_([NP])(\d+)\.webp$", re.IGNORECASE)
 
 
@@ -64,9 +64,9 @@ class TiledMapView(QGraphicsView):
             if pixmap.width() != TILE_SIZE or pixmap.height() != TILE_SIZE:
                 pixmap = pixmap.scaled(TILE_SIZE, TILE_SIZE, Qt.AspectRatioMode.IgnoreAspectRatio,
                                        Qt.TransformationMode.SmoothTransformation)
-            # Each 256px source tile becomes four independent 128px image fragments.
-            for cy in (0, CHUNK_SIZE):
-                for cx in (0, CHUNK_SIZE):
+            # Each 256px source tile becomes sixteen independent 64px image fragments.
+            for cy in range(0, TILE_SIZE, CHUNK_SIZE):
+                for cx in range(0, TILE_SIZE, CHUNK_SIZE):
                     chunk = pixmap.copy(cx, cy, CHUNK_SIZE, CHUNK_SIZE)
                     item = QGraphicsPixmapItem(chunk)
                     item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
