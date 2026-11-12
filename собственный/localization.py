@@ -1,0 +1,38 @@
+"""Russian display names for common HoYoLAB marker labels.
+
+Unknown source labels are kept intact rather than silently mislabelled.
+The source label and ID remain unchanged in the imported catalogue.
+"""
+from __future__ import annotations
+
+_TRANSLATIONS = {
+    "宝箱": "Сундук", "普通宝箱": "Обычный сундук", "精致宝箱": "Богатый сундук",
+    "珍贵宝箱": "Драгоценный сундук", "华丽宝箱": "Роскошный сундук",
+    "神瞳": "Окул", "风神瞳": "Анемокул", "岩神瞳": "Геокул",
+    "雷神瞳": "Электрокул", "草神瞳": "Дендрокул", "水神瞳": "Гидрокул",
+    "火神瞳": "Пироculus", "仙灵": "Фея", "挑战": "Испытание",
+    "限时挑战": "Испытание на время", "传送锚点": "Точка телепортации",
+    "七天神像": "Статуя семи Архонтов", "地灵龛": "Усыпальница глубин",
+    "观景点": "Точка обзора", "秘境": "Подземелье", "世界任务": "Задание мира",
+    "解谜": "Головоломка", "机关": "Механизм", "元素方碑": "Элементальный монумент",
+    "压力机关": "Нажимная плита", "采集物": "Ресурсы", "区域特产": "Диковинка региона",
+    "矿物": "Руда", "矿石": "Руда", "植物": "Растение", "食材": "Ингредиенты",
+    "木材": "Древесина", "钓鱼点": "Место рыбалки", "敌人": "Противник",
+    "精英敌人": "Элитный противник", "首领": "Босс", "普通敌人": "Обычный противник",
+    "书籍": "Книга", "宝箱怪": "Мимик", "猫": "Кошка", "狗": "Собака",
+    "锚点": "Точка телепортации", "探索": "Исследование",
+    "其他": "Другое", "全部": "Все",
+}
+
+def display_name(value: object) -> str:
+    """Translate known Chinese labels and preserve unknown names safely."""
+    text = str(value or "Другое").strip()
+    if not text:
+        return "Другое"
+    if text in _TRANSLATIONS:
+        return _TRANSLATIONS[text]
+    # HoYoLAB labels often include a translated term plus a qualifier.
+    for source in sorted(_TRANSLATIONS, key=len, reverse=True):
+        if source in text:
+            return text.replace(source, _TRANSLATIONS[source])
+    return text
