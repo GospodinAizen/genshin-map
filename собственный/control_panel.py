@@ -79,11 +79,16 @@ class ControlPanel(QDialog):
             return
 
         tile_id = detection["tile_id"]
-        markers = [m for m in self.database.get_markers() if m["tile_id"] == tile_id]
+        markers = list(self.overlay.markers)
         found = self.database.get_found_ids()
         shown = min(len(markers), 1000)
         suffix = f" · показаны первые {shown}" if len(markers) > shown else ""
-        self.status_label.setText(f"Участок: {tile_id} · объектов: {len(markers)}{suffix}")
+        zoom = detection.get("reference_zoom", "?")
+        confidence = detection.get("confidence", 0.0)
+        self.status_label.setText(
+            f"Карта распознана · масштаб {zoom} · уверенность {confidence:.0%} · "
+            f"видимых объектов: {len(markers)}{suffix}"
+        )
 
         # Keep selection and scroll position; refresh only on tile/progress changes.
         if tile_id == self._tile_id and found == self._found_snapshot:
