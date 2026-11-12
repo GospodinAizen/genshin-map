@@ -52,9 +52,10 @@ class MarkerLayer(QGraphicsItem):
         pen = QPen(QColor(20, 25, 30, 220))
         pen.setWidthF(1.0 / scale)
         painter.setPen(pen)
+        exposed = option.exposedRect.adjusted(-radius, -radius, radius, radius)
         for marker in self.markers:
             x, y = marker.get("world_x"), marker.get("world_y")
-            if x is None or y is None:
+            if x is None or y is None or not exposed.contains(float(x), float(y)):
                 continue
             found = marker["id"] in self.found
             color = QColor(115, 120, 125, 150) if found else _category_color(str(marker.get("type", "Other")))
@@ -131,6 +132,7 @@ class TiledMapView(QGraphicsView):
             raise ValueError("markers.runtime.json должен содержать массив.")
         self.marker_layer = MarkerLayer(markers, self.map_root / "progress.db", self.map_bounds)
         self.scene.addItem(self.marker_layer)
+        self.setWindowTitle(f"Genshin Impact — карта · {len(markers):,} меток")
 
     def _suffix(self, zoom: int) -> str:
         return f"N{abs(zoom)}" if zoom < 0 else f"P{zoom}"
@@ -219,5 +221,5 @@ class MapViewer(QMainWindow):
         self.view = TiledMapView(map_root, self)
         self.setCentralWidget(self.view)
         self.statusBar().showMessage(
-            "Колесо — масштаб · перетаскивание — перемещение · ЛКМ по метке — найдено/не найдено"
+            "Колесо — масштаб · перетаскивание — перемещение · ЛКМ по метке — найдено/не найдено · Shift+ЛКМ — перемещение"
         )
