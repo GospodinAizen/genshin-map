@@ -75,3 +75,55 @@ def test_latest_asset_requires_exact_full_snapshot(monkeypatch):
     assert asset["tag"] == "v7.2.0"
     assert asset["name"] == "teyvat-full-v7.2.0.tar.gz"
     assert asset["size"] == 20
+
+
+
+def test_refresh_russian_labels_preserves_cached_local_icons(tmp_path, monkeypatch):
+    labels = [
+        {"id": 1, "name": "传送点", "icon": "icons/root.webp",
+         "children": [{"id": 2, "name": "宝箱", "icon": "icons/chest.webp"}]}
+    ]
+    (tmp_path / "labels.json").write_text(json.dumps(labels), encoding="utf-8")
+    russian = {
+        "retcode": 0,
+        "data": {"tree": [
+            {"id": 1, "name": "Точки телепортации", "icon": "https://cdn/root",
+             "children": [{"id": 2, "name": "Сундук", "icon": "https://cdn/chest"}]}
+        ]},
+    }
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            return json.dumps(russian, ensure_ascii=False).encode("utf-8")
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *args, **kwargs: Response())
+    assert updater.refresh_russian_labels(tmp_path) == "ru-ru"
+    saved = json.loads((tmp_path / "labels.json").read_text(encoding="utf-8"))
+    assert saved[0]["name"] == "Точки телепортации"
+    assert saved[0]["icon"] == "icons/root.webp"
+    assert saved[0]["children"][0]["icon"] == "icons/chest.webp"
+
+
+def test_refresh_russian_labels_falls_back_when_endpoint_returns_chinese(tmp_path, monkeypatch):
+    (tmp_path / "labels.json").write_text(
+        json.dumps([{"id": 1, "name": "宝箱", "icon": "icons/chest.webp"}]),
+        encoding="utf-8",
+    )
+
+    class Response:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def read(self):
+            payload = {"retcode": 0, "data": {"tree": [{"id": 1, "name": "宝箱"}]}}
+            return json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    monkeypatch.setattr(updater.urllib.request, "urlopen", lambda *args, **kwargs: Response())
+    assert updater.refresh_russian_labels(tmp_path) == "zh-cn"
+    saved = json.loads((tmp_path / "labels.json").read_text(encoding="utf-8"))
+    assert saved[0]["name"] == "宝箱"
