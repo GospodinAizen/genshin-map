@@ -89,6 +89,8 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
                 })
                 loaded_tiles += loaded
                 generated += 1
+        if loaded_tiles == 0:
+            raise RuntimeError(f"No usable reference mosaics were built at zoom {zoom}.")
         loaded_by_zoom[str(zoom)] = loaded_tiles
 
     if generated < 20:
