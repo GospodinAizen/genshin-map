@@ -45,11 +45,11 @@ jobs:
           Copy-Item README.md "dist/README.md"
           if (!(Test-Path "dist/GenshinMapOverlay/GenshinMapOverlay.exe")) { throw "Overlay executable missing" }
           if (!(Test-Path "dist/hoyolab_updater.exe")) { throw "Updater executable missing" }
-      - name: Smoke-test updater executable
+      - name: Smoke-test updater executable offline
         working-directory: собственный
         shell: pwsh
         run: |
-          & "dist/hoyolab_updater.exe" --check
+          & "dist/hoyolab_updater.exe" --self-test
           if ($LASTEXITCODE -ne 0) { throw "Updater smoke test failed" }
       - uses: actions/upload-artifact@v4
         with:
