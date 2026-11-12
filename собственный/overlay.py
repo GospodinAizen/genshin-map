@@ -5,6 +5,7 @@ from collections import defaultdict
 from PySide6.QtCore import Qt, Signal, Slot, QRect
 from PySide6.QtGui import QColor, QFont, QPainter, QPen, QRegion
 from PySide6.QtWidgets import QWidget
+from localization import display_name
 from marker_renderer import COLORS, marker_color, prepare_markers
 
 
@@ -156,4 +157,4 @@ class Overlay(QWidget):
             painter.drawEllipse(x - 6, y - 6, 12, 12)
             painter.setFont(QFont("Arial", 9))
             painter.setPen(QColor(255, 255, 255))
-            painter.drawText(x + 10, y + 4, str(marker["name"]))
+            painter.drawText(x + 10, y + 4, display_name(marker["name"]))
