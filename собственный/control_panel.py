@@ -22,6 +22,7 @@ class ControlPanel(QDialog):
         self._tile_id = None
         self._floor_id = "surface"
         self._found_snapshot: set[str] = set()
+        self._visible_marker_ids: tuple[str, ...] = ()
         self.detection = None
         self.setWindowTitle("Genshin Map — управление метками")
         self.setMinimumWidth(340)
@@ -90,6 +91,7 @@ class ControlPanel(QDialog):
         if detection is None:
             self._tile_id = None
             self._found_snapshot = set()
+            self._visible_marker_ids = ()
             self.status_label.setText(
                 f"Карта не распознана · в базе {len(self.database.markers)} меток. "
                 "Проверьте, открыта ли игровая карта"
@@ -111,7 +113,9 @@ class ControlPanel(QDialog):
         )
 
         # Keep selection and scroll position; refresh only on tile/progress changes.
-        if tile_id == self._tile_id and self._floor_id == getattr(self, "_rendered_floor_id", None) and found == self._found_snapshot:
+        visible_ids = tuple(marker["id"] for marker in markers[:1000])
+        if (tile_id == self._tile_id and self._floor_id == getattr(self, "_rendered_floor_id", None)
+                and found == self._found_snapshot and visible_ids == self._visible_marker_ids):
             return
 
         self._loading = True
@@ -130,6 +134,7 @@ class ControlPanel(QDialog):
         self._tile_id = tile_id
         self._rendered_floor_id = self._floor_id
         self._found_snapshot = found
+        self._visible_marker_ids = visible_ids
         self._loading = False
 
     @Slot(int)
