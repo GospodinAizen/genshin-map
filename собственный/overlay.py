@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from collections import defaultdict
 from PySide6.QtCore import Qt, Signal, Slot, QRect
-from PySide6.QtGui import QColor, QFont, QPainter, QPen, QRegion
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QRegion, QPixmap
 from PySide6.QtWidgets import QWidget
 from localization import display_name
 from marker_renderer import COLORS, marker_color, prepare_markers
@@ -16,6 +16,7 @@ class Overlay(QWidget):
     def __init__(self, database) -> None:
         super().__init__()
         self.database = database
+        self._icon_cache: dict[str, QPixmap] = {}
         self.markers: list[dict] = []
         self.detection: dict | None = None
         self.enabled_types = {str(marker.get('type', 'Other')) for marker in database.markers}
@@ -152,9 +153,27 @@ class Overlay(QWidget):
             color = marker_color(marker["type"])
             x = round(marker["screen_x"] + ox - self.geometry().x())
             y = round(marker["screen_y"] + oy - self.geometry().y())
-            painter.setPen(QPen(QColor(*color), 2))
-            painter.setBrush(QColor(*color))
-            painter.drawEllipse(x - 6, y - 6, 12, 12)
-            painter.setFont(QFont("Arial", 9))
+            icon_rel = marker.get("icon")
+            pixmap = None
+            if icon_rel:
+                icon_key = str(icon_rel)
+                pixmap = self._icon_cache.get(icon_key)
+                if pixmap is None:
+                    icon_path = (self.database.json_path.parent / icon_key).resolve()
+                    try:
+                        icon_path.relative_to(self.database.json_path.parent.resolve())
+                        loaded = QPixmap(str(icon_path))
+                        if not loaded.isNull():
+                            self._icon_cache[icon_key] = loaded
+                            pixmap = loaded
+                    except (OSError, ValueError):
+                        pixmap = None
+            if pixmap is not None:
+                painter.drawPixmap(x - 10, y - 10, 20, 20, pixmap)
+            else:
+                painter.setPen(QPen(QColor(*color), 2))
+                painter.setBrush(QColor(*color))
+                painter.drawEllipse(x - 6, y - 6, 12, 12)
+            painter.setFont(QFont("Arial", 8))
             painter.setPen(QColor(255, 255, 255))
-            painter.drawText(x + 10, y + 4, display_name(marker["name"]))
+            painter.drawText(x + 11, y + 4, display_name(marker["name"]))
