@@ -17,7 +17,7 @@ def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
         "mapId": 2,
         "mapVersion": "test-version",
         "origin": [160, 320],
-        "totalSize": [12288, 12288],
+        "totalSize": [16384, 16384],
         "minZoom": -4,
         "maxZoom": -2,
     }
@@ -64,5 +64,5 @@ def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
 
     manager = ReferenceManager(root / "references" / "manifest.json", max_features=100)
     assert len(manager.tiles) == 21
-    assert any(tile.reference_scale == 1 for tile in manager.tiles.values())
     assert any(tile.reference_scale == 0.25 for tile in manager.tiles.values())
+    assert any(tile.reference_scale == 0.0625 for tile in manager.tiles.values())
