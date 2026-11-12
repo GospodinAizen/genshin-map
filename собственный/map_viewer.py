@@ -1,20 +1,99 @@
-"""Tiled HoYoLAB map viewer; source tiles are split into 128px chunks."""
+"""Interactive tiled HoYoLAB map with a lightweight, clickable marker layer."""
 from __future__ import annotations
 
 import json
 import math
 import re
+import sqlite3
+import zlib
 from pathlib import Path
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QMainWindow, QLabel
-from PySide6.QtGui import QPixmap
-
+from PySide6.QtCore import Qt, QRectF
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor, QPixmap
+from PySide6.QtWidgets import (
+    QGraphicsItem, QGraphicsPixmapItem, QGraphicsScene, QGraphicsView,
+    QMainWindow, QMessageBox,
+)
 
 TILE_SIZE = 256
 CHUNK_SIZE = 64
 _TILE_RE = re.compile(r"^(\d+)_(\d+)_([NP])(\d+)\.webp$", re.IGNORECASE)
+PALETTE = ((255, 190, 70), (90, 210, 255), (120, 230, 150),
+           (220, 130, 255), (255, 220, 90), (100, 220, 220),
+           (255, 110, 150), (170, 210, 255))
+
+
+def _category_color(value: str) -> QColor:
+    return QColor(*PALETTE[zlib.crc32(value.encode("utf-8")) % len(PALETTE)])
+
+
+class MarkerLayer(QGraphicsItem):
+    """One paint item for the whole catalogue: avoids tens of thousands of scene items."""
+    def __init__(self, markers: list[dict], progress_db: Path, bounds: QRectF):
+        super().__init__()
+        self.markers = markers
+        self.bounds = bounds
+        self.db = sqlite3.connect(progress_db)
+        self.db.execute("""CREATE TABLE IF NOT EXISTS progress (
+            marker_id TEXT PRIMARY KEY, found INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
+        self.db.commit()
+        self.found = {row[0] for row in self.db.execute(
+            "SELECT marker_id FROM progress WHERE found=1"
+        )}
+        self.setZValue(10)
+
+    def boundingRect(self) -> QRectF:
+        return self.bounds
+
+    def paint(self, painter: QPainter, option, widget=None) -> None:
+        scale = max(0.0001, painter.worldTransform().m11())
+        radius = 4.0 / scale
+        pen = QPen(QColor(20, 25, 30, 220))
+        pen.setWidthF(1.0 / scale)
+        painter.setPen(pen)
+        for marker in self.markers:
+            x, y = marker.get("world_x"), marker.get("world_y")
+            if x is None or y is None:
+                continue
+            found = marker["id"] in self.found
+            color = QColor(115, 120, 125, 150) if found else _category_color(str(marker.get("type", "Other")))
+            painter.setBrush(QBrush(color))
+            painter.drawEllipse(QRectF(float(x)-radius, float(y)-radius, radius*2, radius*2))
+
+    def toggle_nearest(self, x: float, y: float, tolerance: float) -> dict | None:
+        best, best_d2 = None, tolerance * tolerance
+        for marker in self.markers:
+            if marker.get("world_x") is None or marker.get("world_y") is None:
+                continue
+            dx, dy = float(marker["world_x"])-x, float(marker["world_y"])-y
+            d2 = dx*dx + dy*dy
+            if d2 <= best_d2:
+                best, best_d2 = marker, d2
+        if best is None:
+            return None
+        marker_id = best["id"]
+        found = marker_id not in self.found
+        if found:
+            self.found.add(marker_id)
+            self.db.execute(
+                "INSERT INTO progress(marker_id,found) VALUES(?,1) "
+                "ON CONFLICT(marker_id) DO UPDATE SET found=1,updated_at=CURRENT_TIMESTAMP",
+                (marker_id,),
+            )
+        else:
+            self.found.remove(marker_id)
+            self.db.execute(
+                "INSERT INTO progress(marker_id,found) VALUES(?,0) "
+                "ON CONFLICT(marker_id) DO UPDATE SET found=0,updated_at=CURRENT_TIMESTAMP",
+                (marker_id,),
+            )
+        self.db.commit()
+        self.update()
+        return {**best, "found": found}
+
+    def close(self) -> None:
+        self.db.close()
 
 
 class TiledMapView(QGraphicsView):
@@ -28,16 +107,30 @@ class TiledMapView(QGraphicsView):
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         width, height = self.meta["totalSize"]
-        self.scene.setSceneRect(0, 0, float(width), float(height))
+        self.map_bounds = QRectF(0, 0, float(width), float(height))
+        self.scene.setSceneRect(self.map_bounds)
         self.setBackgroundBrush(Qt.GlobalColor.black)
         self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.MinimalViewportUpdate)
         self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
         self.setResizeAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
-        self.setWindowTitle("Genshin Map — фрагментная карта")
+        self.setWindowTitle("Genshin Impact — подробная карта")
         self.setMinimumSize(900, 620)
+        self.marker_layer = None
+        self.last_marker = None
+        self._load_markers()
         self._load_zoom(self.min_zoom)
+
+    def _load_markers(self) -> None:
+        marker_file = self.map_root / "markers.runtime.json"
+        if not marker_file.is_file():
+            return
+        markers = json.loads(marker_file.read_text(encoding="utf-8"))
+        if not isinstance(markers, list):
+            raise ValueError("markers.runtime.json должен содержать массив.")
+        self.marker_layer = MarkerLayer(markers, self.map_root / "progress.db", self.map_bounds)
+        self.scene.addItem(self.marker_layer)
 
     def _suffix(self, zoom: int) -> str:
         return f"N{abs(zoom)}" if zoom < 0 else f"P{zoom}"
@@ -46,7 +139,9 @@ class TiledMapView(QGraphicsView):
         zoom = max(self.min_zoom, min(self.max_zoom, int(zoom)))
         if zoom == self.active_zoom:
             return
-        self.scene.clear()
+        for item in list(self.scene.items()):
+            if item is not self.marker_layer:
+                self.scene.removeItem(item)
         scale = 2 ** zoom
         tiles_dir = self.map_root / "tiles"
         if not tiles_dir.is_dir():
@@ -61,21 +156,22 @@ class TiledMapView(QGraphicsView):
             pixmap = QPixmap(str(path))
             if pixmap.isNull():
                 continue
-            if pixmap.width() != TILE_SIZE or pixmap.height() != TILE_SIZE:
-                pixmap = pixmap.scaled(TILE_SIZE, TILE_SIZE, Qt.AspectRatioMode.IgnoreAspectRatio,
+            if pixmap.size().width() != TILE_SIZE or pixmap.size().height() != TILE_SIZE:
+                from PySide6.QtCore import QSize
+                pixmap = pixmap.scaled(QSize(TILE_SIZE, TILE_SIZE), Qt.AspectRatioMode.IgnoreAspectRatio,
                                        Qt.TransformationMode.SmoothTransformation)
-            # Each 256px source tile becomes sixteen independent 64px image fragments.
             for cy in range(0, TILE_SIZE, CHUNK_SIZE):
                 for cx in range(0, TILE_SIZE, CHUNK_SIZE):
                     chunk = pixmap.copy(cx, cy, CHUNK_SIZE, CHUNK_SIZE)
                     item = QGraphicsPixmapItem(chunk)
                     item.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
                     item.setScale(1.0 / scale)
-                    item.setPos((tx * TILE_SIZE + cx) / scale,
-                                (ty * TILE_SIZE + cy) / scale)
+                    item.setPos((tx*TILE_SIZE+cx)/scale, (ty*TILE_SIZE+cy)/scale)
                     item.setZValue(0)
                     self.scene.addItem(item)
         self.active_zoom = zoom
+        if self.marker_layer is not None:
+            self.marker_layer.setZValue(10)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -83,7 +179,7 @@ class TiledMapView(QGraphicsView):
             self.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def wheelEvent(self, event) -> None:
-        factor = 1.2 if event.angleDelta().y() > 0 else 1.0 / 1.2
+        factor = 1.2 if event.angleDelta().y() > 0 else 1.0/1.2
         self.scale(factor, factor)
         after = self.transform().m11()
         if after <= 0:
@@ -95,6 +191,26 @@ class TiledMapView(QGraphicsView):
             self._load_zoom(desired)
             self.centerOn(center)
 
+    def mousePressEvent(self, event) -> None:
+        if (event.button() == Qt.MouseButton.LeftButton and self.marker_layer is not None
+                and not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier)):
+            point = self.mapToScene(event.position().toPoint())
+            tolerance = 14.0 / max(self.transform().m11(), 0.0001)
+            marker = self.marker_layer.toggle_nearest(point.x(), point.y(), tolerance)
+            if marker is not None:
+                state = "найдено" if marker["found"] else "снова не найдено"
+                self.last_marker = marker
+                self.window().statusBar().showMessage(
+                    f"{marker.get('name', 'Метка')} — {state} · {marker.get('type', '')}", 4000
+                )
+                return
+        super().mousePressEvent(event)
+
+    def closeEvent(self, event) -> None:
+        if self.marker_layer is not None:
+            self.marker_layer.close()
+        super().closeEvent(event)
+
 
 class MapViewer(QMainWindow):
     def __init__(self, map_root: Path, parent=None):
@@ -102,4 +218,6 @@ class MapViewer(QMainWindow):
         self.setWindowTitle("Genshin Impact — карта")
         self.view = TiledMapView(map_root, self)
         self.setCentralWidget(self.view)
-        self.statusBar().showMessage("Колесо мыши — масштаб · перетаскивание — перемещение · фрагменты 128×128")
+        self.statusBar().showMessage(
+            "Колесо — масштаб · перетаскивание — перемещение · ЛКМ по метке — найдено/не найдено"
+        )
