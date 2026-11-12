@@ -1,4 +1,4 @@
-"""Background screen-analysis worker with deterministic shutdown."""
+"""Background screen-analysis worker with visible diagnostic status."""
 from __future__ import annotations
 import logging
 from pathlib import Path
@@ -11,6 +11,7 @@ LOG = logging.getLogger(__name__)
 class DetectionWorker(QObject):
     detection_ready = Signal(object)
     error = Signal(str)
+    status = Signal(str)
     stop_requested = Signal()
 
     def __init__(self, manifest_path: str | Path, interval_ms: int = 350) -> None:
@@ -24,10 +25,12 @@ class DetectionWorker(QObject):
     @Slot()
     def start(self) -> None:
         try:
+            self.status.emit(f"Загрузка эталонов карты: {self.manifest_path}")
             self.tracker = ScreenTracker(self.manifest_path)
+            self.status.emit(self.tracker.last_status)
         except Exception as exc:
             LOG.exception("Tracker initialization failed")
-            self.error.emit(str(exc))
+            self.error.emit(f"Не удалось загрузить эталоны: {exc}")
             return
         self.timer = QTimer(self)
         self.timer.setInterval(self.interval_ms)
@@ -40,10 +43,12 @@ class DetectionWorker(QObject):
         if self.tracker is None:
             return
         try:
-            self.detection_ready.emit(self.tracker.detect())
+            detection = self.tracker.detect()
+            self.detection_ready.emit(detection)
+            self.status.emit(self.tracker.last_status)
         except Exception as exc:
             LOG.exception("Screen detection failed")
-            self.error.emit(str(exc))
+            self.error.emit(f"Ошибка анализа экрана: {exc}")
 
     @Slot()
     def stop(self) -> None:
@@ -54,5 +59,4 @@ class DetectionWorker(QObject):
         if self.tracker is not None:
             self.tracker.close()
             self.tracker = None
-        # Quit this worker's event loop only after resources have been released.
         QThread.currentThread().quit()
