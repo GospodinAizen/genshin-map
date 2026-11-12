@@ -2,9 +2,13 @@
 
 Desktop overlay foundation for multi-region Genshin maps. It separates map identity/floors from reference tiles and supports independent full-map and minimap localization pipelines.
 
-## Install and run
+## Готовая сборка Windows
 
-Python 3.10+ recommended. From the repository root:
+Готовый переносимый ZIP собирается автоматически через GitHub Actions: откройте [Windows portable build](https://github.com/GospodinAizen/genshin-map/actions/workflows/windows-build.yml), нажмите **Run workflow** на ветке `architecture-v2`, скачайте artifact `GenshinMapOverlay-Windows-x64` и распакуйте его. Запустите `Запустить.bat`. Python устанавливать не нужно. Первый запуск скачает публичные данные HoYoLAB; интернет обязателен. Подробности — в [BUILD_WINDOWS.md](BUILD_WINDOWS.md).
+
+## Запуск из исходников
+
+Python 3.11+ рекомендуется. Из корня репозитория:
 
 ```bash
 cd собственный
@@ -14,7 +18,7 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-For the HoYoLAB-backed first in-game prototype on Windows, use `Запустить_тест.bat` (instructions below). The legacy manual-reference mode remains available with `python genshin.py` after preparing `references/manifest.json` and its image files.
+For source-based Windows testing, use `Запустить_тест.bat` (instructions below). The legacy manual-reference mode remains available with `python genshin.py` after preparing `references/manifest.json` and its image files.
 
 Hotkeys: **M** toggles overlay; **F6** toggles controls; **F7** toggles marker interaction.
 
