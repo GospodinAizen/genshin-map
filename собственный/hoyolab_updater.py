@@ -62,7 +62,7 @@ def refresh_russian_labels(snapshot_dir: Path) -> str:
 
         def contains_cjk(nodes: list[dict[str, Any]]) -> bool:
             for node in nodes:
-                if any("\\u3400" <= char <= "\\u9fff" for char in str(node.get("name", ""))):
+                if any("\u3400" <= char <= "\u9fff" for char in str(node.get("name", ""))):
                     return True
                 if contains_cjk(node.get("children") or []):
                     return True
@@ -80,7 +80,7 @@ def refresh_russian_labels(snapshot_dir: Path) -> str:
 
         restore_local_icons(tree)
         labels_path.write_text(
-            json.dumps(tree, ensure_ascii=False, separators=(",", ":")) + "\\n",
+            json.dumps(tree, ensure_ascii=False, separators=(",", ":")) + "\n",
             encoding="utf-8",
         )
         return "ru-ru"
