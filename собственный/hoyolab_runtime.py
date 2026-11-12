@@ -130,9 +130,11 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
     )
 
     runtime_markers = []
+    floor_counts: dict[str, int] = {}
     for marker in normalized["markers"]:
-        if marker.get("z") not in (None, 0, "0"):
-            continue
+        raw_z = marker.get("z")
+        floor_id = "surface" if raw_z in (None, 0, "0") else f"z:{raw_z}"
+        floor_counts[floor_id] = floor_counts.get(floor_id, 0) + 1
         map_x, map_y = float(marker["map_x"]), float(marker["map_y"])
         world_x, world_y = map_x + float(origin[0]), map_y + float(origin[1])
         runtime_markers.append({
@@ -146,11 +148,13 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
             "world_y": world_y,
             "tile_id": "teyvat_multiscale",
             "map_id": "teyvat_surface",
+            "floor_id": floor_id,
+            "floor_label": "Поверхность" if floor_id == "surface" else f"Уровень {raw_z}",
             "source_point_id": marker.get("source_point_id"),
             "icon": marker.get("icon"),
         })
-    if len(runtime_markers) < 1000:
-        raise RuntimeError(f"Only {len(runtime_markers)} surface markers were imported.")
+    if floor_counts.get("surface", 0) < 1000:
+        raise RuntimeError(f"Only {floor_counts.get('surface', 0)} surface markers were imported.")
     marker_path = root / "markers.runtime.json"
     marker_path.write_text(
         json.dumps(runtime_markers, ensure_ascii=False, separators=(",", ":")) + "\n",
@@ -162,6 +166,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
         "tiles_loaded_by_zoom": loaded_by_zoom,
         "reference_mosaics": generated,
         "markers": len(runtime_markers),
+        "markers_by_floor": floor_counts,
         "zoom_range": [min_zoom, max_zoom],
         "block_tiles": BLOCK_TILES,
     }
