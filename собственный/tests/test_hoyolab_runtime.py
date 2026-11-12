@@ -42,7 +42,7 @@ def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
             "category_path": ["Resources", "Ore"],
             "map_x": 1000 + index,
             "map_y": 2000 + index,
-            "z": 0,
+            "z": 0 if index < 1198 else (-1 if index == 1198 else 1),
             "source_point_id": str(index),
         })
     (root / "markers.normalized.json").write_text(
@@ -55,9 +55,12 @@ def test_builds_multiscale_reference_mosaics_and_runtime_markers(tmp_path):
 
     assert result["reference_mosaics"] == 21
     assert result["markers"] == 1200
+    assert result["markers_by_floor"] == {"surface": 1198, "z:-1": 1, "z:1": 1}
     assert runtime[0]["tile_id"] == "teyvat_multiscale"
     assert runtime[0]["x"] == 1000
     assert runtime[0]["y"] == 2000
+    assert runtime[-2]["floor_id"] == "z:-1"
+    assert runtime[-1]["floor_label"] == "Уровень 1"
     assert runtime[0]["world_x"] == 1160
     assert manifest["zoom_range"] == [-4, -2]
     assert manifest["reference_mosaics"] == 21
