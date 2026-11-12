@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from pathlib import Path
 
 import cv2
@@ -26,6 +27,13 @@ class ScreenTracker:
         self.orb = cv2.ORB_create(nfeatures=max_features, scaleFactor=1.2,
                                   nlevels=8, fastThreshold=12)
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+        self._global_tiles = list(self.manager.tiles.values())
+        self._global_matcher = cv2.FlannBasedMatcher(
+            dict(algorithm=6, table_number=12, key_size=20, multi_probe_level=2), {}
+        )
+        for tile in self._global_tiles:
+            self._global_matcher.add([tile.descriptors])
+        self._global_matcher.train()
         self.sct = mss.mss()
         monitor_index = self.manager.monitor_index
         if monitor_index <= 0 or monitor_index >= len(self.sct.monitors):
@@ -46,7 +54,11 @@ class ScreenTracker:
             return self._on_miss()
 
         best = None
-        for tile in self.manager.candidates(self._last_tile_id):
+        if self._last_tile_id is None:
+            candidates = self._rank_global_candidates(screen_descriptors)
+        else:
+            candidates = self.manager.candidates(self._last_tile_id)
+        for tile in candidates:
             pairs = self.matcher.knnMatch(tile.descriptors, screen_descriptors, k=2)
             good = [a for pair in pairs if len(pair) == 2
                     for a, b in [pair] if a.distance < self.ratio_test * b.distance]
@@ -96,6 +108,28 @@ class ScreenTracker:
         })
         self._last_detection = best
         return best
+
+    def _rank_global_candidates(self, screen_descriptors: np.ndarray):
+        """Approximate global descriptor search; only geometrically verify top tiles."""
+        try:
+            pairs = self._global_matcher.knnMatch(screen_descriptors, k=2)
+            votes: Counter[int] = Counter()
+            for pair in pairs:
+                if len(pair) < 2:
+                    continue
+                first, second = pair[0], pair[1]
+                if first.distance < self.ratio_test * second.distance:
+                    votes[first.imgIdx] += 1
+            ranked = [
+                self._global_tiles[index]
+                for index, count in votes.most_common(16)
+                if count >= self.min_matches
+            ]
+            if ranked:
+                return ranked
+        except cv2.error:
+            LOG.exception("Global map search failed; falling back to a full reference scan")
+        return list(self._global_tiles)
 
     def _on_miss(self) -> dict | None:
         self._misses += 1
