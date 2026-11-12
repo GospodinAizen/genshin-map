@@ -6,7 +6,7 @@ from localization import display_name
 from marker_renderer import prepare_markers
 
 from PySide6.QtWidgets import (
-    QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
+    QCheckBox, QComboBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
     QMessageBox, QPushButton, QVBoxLayout, QScrollArea, QWidget,
 )
 
@@ -20,6 +20,7 @@ class ControlPanel(QDialog):
         self.overlay = overlay
         self._loading = False
         self._tile_id = None
+        self._floor_id = "surface"
         self._found_snapshot: set[str] = set()
         self.detection = None
         self.setWindowTitle("Genshin Map — управление метками")
@@ -28,6 +29,15 @@ class ControlPanel(QDialog):
         self.toggle_requested.connect(self.toggle)
 
         root = QVBoxLayout(self)
+        root.addWidget(QLabel("Слой карты / этаж"))
+        self.floor_combo = QComboBox()
+        for floor_id, floor_label in database.get_floors():
+            self.floor_combo.addItem(floor_label, floor_id)
+        selected = self.floor_combo.findData("surface")
+        if selected >= 0:
+            self.floor_combo.setCurrentIndex(selected)
+        self.floor_combo.currentIndexChanged.connect(self._floor_changed)
+        root.addWidget(self.floor_combo)
         root.addWidget(QLabel("Категории меток"))
         self.category_checks = {}
         category_scroll = QScrollArea()
@@ -89,7 +99,7 @@ class ControlPanel(QDialog):
 
         tile_id = detection["tile_id"]
         all_types = {str(m.get('type', 'Other')) for m in self.database.markers}
-        markers = prepare_markers(self.database.get_markers(), detection, set(), all_types)
+        markers = prepare_markers(self.database.get_markers(floor_id=self._floor_id), detection, set(), all_types)
         found = self.database.get_found_ids()
         shown = min(len(markers), 1000)
         suffix = f" · показаны первые {shown}" if len(markers) > shown else ""
@@ -101,7 +111,7 @@ class ControlPanel(QDialog):
         )
 
         # Keep selection and scroll position; refresh only on tile/progress changes.
-        if tile_id == self._tile_id and found == self._found_snapshot:
+        if tile_id == self._tile_id and self._floor_id == getattr(self, "_rendered_floor_id", None) and found == self._found_snapshot:
             return
 
         self._loading = True
@@ -118,8 +128,19 @@ class ControlPanel(QDialog):
             )
             self.marker_list.addItem(item)
         self._tile_id = tile_id
+        self._rendered_floor_id = self._floor_id
         self._found_snapshot = found
         self._loading = False
+
+    @Slot(int)
+    def _floor_changed(self, index: int) -> None:
+        floor_id = self.floor_combo.itemData(index)
+        if not floor_id:
+            return
+        self._floor_id = str(floor_id)
+        self.overlay.set_floor(self._floor_id)
+        self._tile_id = None
+        self.update_detection(self.detection)
 
     @Slot(QListWidgetItem)
     def _marker_changed(self, item: QListWidgetItem) -> None:
