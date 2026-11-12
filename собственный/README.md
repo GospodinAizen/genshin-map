@@ -28,7 +28,7 @@ python hoyolab_importer.py ./path/to/snapshot -o ./data/hoyolab-map-2.json
 
 The importer does not fabricate missing labels or names. Points referring to unknown labels are counted and skipped. IDs are namespaced by source map and z-level to avoid collisions.
 
-**Coordinate transform:** HoYoLAB's public map metadata defines `world_pixel = point + origin`; each zoom level has scale `2 ** zoom` and 256×256 px source tiles. `hoyolab_runtime.py` builds 4×4 tile reference mosaics at every published zoom level (currently -4 through 0), records each mosaic's map-space origin, and projects source coordinates through the matched mosaic. The tracker uses approximate global descriptor search for initial acquisition, then prioritizes the current mosaic and its neighbors; after tracking loss it reacquires globally. This replaces the single low-resolution world image that could not reliably match zoomed-in game maps. Underground z-levels remain excluded until independent floor maps are obtained.
+**Coordinate transform:** HoYoLAB's public map metadata defines `world_pixel = point + origin`; each zoom level has scale `2 ** zoom` and 256×256 px source tiles. `hoyolab_runtime.py` builds 4×4 tile reference mosaics at every published zoom level (currently -4 through 0), records each mosaic's map-space origin, and projects source coordinates through the matched mosaic. The tracker uses approximate global descriptor search for initial acquisition, then prioritizes the current mosaic and its neighbors; after tracking loss it reacquires globally. This replaces the single low-resolution world image that could not reliably match zoomed-in game maps. Every point's original `z_level` is retained and exposed as a selectable layer in the Russian control panel. The public Teyvat snapshot does not provide a separate visual tile pyramid for every underground interior, so this selector filters the official points by z-level; it does not yet claim automatic recognition of underground interiors.
 
 The referenced public snapshot project currently documents a Teyvat snapshot (`map_id=2`). This does not establish complete coverage of every region, underground floor, domain, or future HoYoLAB layer. Each additional map needs its own verified source snapshot and catalogue entry. No login bypass or anti-bot evasion is implemented.
 
@@ -51,7 +51,7 @@ Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on
 
 Extraction rejects traversal paths, links and special files, enforces archive/member/expanded-size limits, checks archive size and release digest, validates the snapshot JSON through the importer, and swaps the new snapshot into place only after validation. Tests use local fixtures and do not access the network.
 
-This updater currently downloads the full Teyvat snapshot only. It does not claim that every underground map, domain, event map, or future HoYoLAB layer is present. The updater builds a multiscale reference catalogue and runtime marker file used by the overlay. This runtime is Teyvat surface only; it does not yet support underground floors or the minimap.
+This updater currently downloads the full Teyvat snapshot only. It does not claim that every underground map, domain, event map, or future HoYoLAB layer is present. The updater builds a multiscale reference catalogue and runtime marker file used by the overlay. All point z-levels are retained and can be selected manually in the panel. Separate underground map imagery and automatic floor recognition, minimap projection, and other HoYoLAB map IDs are still unfinished.
 
 ## Multi-map architecture
 
@@ -70,7 +70,7 @@ A minimap reference set is not interchangeable with a full-map tile set. It must
 
 ## Current status and limitations
 
-The HoYoLAB surface runtime is wired into `genshin.py`: it downloads the public Teyvat snapshot, builds references from all published zoom levels, attempts Russian labels, projects surface markers, and renders the official marker icons over a matched full map. It remains experimental: matching has not been validated on every UI scale, aspect ratio, monitor layout, or on the user's PC. Underground floors, minimap projection, automatic map switching, and live validation remain unfinished.
+The HoYoLAB surface runtime is wired into `genshin.py`: it downloads the public Teyvat snapshot, builds references from all published zoom levels, attempts Russian labels, projects surface markers, and renders the official marker icons over a matched full map. It remains experimental: matching has not been validated on every UI scale, aspect ratio, monitor layout, or on the user's PC. Manual z-level filtering is available; separate underground floor imagery and automatic floor recognition, minimap projection, automatic map switching, and live validation remain unfinished.
 
 ## First user test (Windows)
 
@@ -78,6 +78,6 @@ The HoYoLAB surface runtime is wired into `genshin.py`: it downloads the public 
 2. Download this branch as a ZIP from GitHub and extract it.
 3. Open the `собственный` folder and double-click `Запустить_тест.bat`.
 4. The launcher creates a virtual environment, installs dependencies, downloads and validates the latest public Teyvat snapshot, builds multiscale reference mosaics, and starts the overlay.
-5. Start Genshin Impact in borderless/windowed mode, open the in-game full map, and press **M** to show/hide the overlay. Press **F6** for the category/progress panel and **F7** to enable marker clicks (left-click = found, right-click = unmark).
+5. Start Genshin Impact in borderless/windowed mode, open the in-game full map, and press **M** to show/hide the overlay. Press **F6** for the category/progress panel (including the available z-level selector) and **F7** to enable marker clicks (left-click = found, right-click = unmark).
 
 This test build uses the official HoYoLAB Teyvat surface points and map tiles. It does not require user screenshots or manually prepared map crops. The game map must be visible on the selected monitor (monitor 1 by default). If recognition does not lock on, the overlay will show no markers rather than inventing positions. The minimap and underground floors are not yet part of this test.
