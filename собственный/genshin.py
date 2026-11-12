@@ -34,7 +34,8 @@ def main() -> int:
     try:
         database = MarkerDatabase(marker_file, progress_file)
         overlay = Overlay(database)
-        panel = ControlPanel(database, overlay)
+        map_root = cache if cache is not None else ROOT / "data"
+        panel = ControlPanel(database, overlay, map_root)
         panel.show()
         thread = QThread()
         worker = DetectionWorker(manifest_file, interval_ms=500)
