@@ -14,7 +14,7 @@ from PySide6.QtGui import QPixmap
 
 TILE_SIZE = 256
 CHUNK_SIZE = 128
-_TILE_RE = re.compile(r"^(\\d+)_(\\d+)_([NP])(\\d+)\\.webp$", re.IGNORECASE)
+_TILE_RE = re.compile(r"^(\d+)_(\d+)_([NP])(\d+)\.webp$", re.IGNORECASE)
 
 
 class TiledMapView(QGraphicsView):
