@@ -50,7 +50,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
         for by in range(blocks_y):
             for bx in range(blocks_x):
                 canvas = np.zeros(
-                    (BLOCK_TILES * TILE_SIZE, BLOCK_TILES * TILE_SIZE, 3),
+                    (BLOCK_TILES * TILE_SIZE, BLOCK_TILES * TILE_SIZE),
                     dtype=np.uint8,
                 )
                 loaded = 0
@@ -62,7 +62,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
                         tile_path = root / "tiles" / f"{tx}_{ty}_{_suffix(zoom)}.webp"
                         if not tile_path.is_file():
                             continue
-                        tile = cv2.imread(str(tile_path), cv2.IMREAD_COLOR)
+                        tile = cv2.imread(str(tile_path), cv2.IMREAD_GRAYSCALE)
                         if tile is None:
                             continue
                         if tile.shape[:2] != (TILE_SIZE, TILE_SIZE):
@@ -77,7 +77,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
                 tile_id = f"teyvat_z{zoom}_b{bx}_{by}"
                 image_name = f"{tile_id}.jpg"
                 image_path = references / image_name
-                if not cv2.imwrite(str(image_path), canvas, [cv2.IMWRITE_JPEG_QUALITY, 94]):
+                if not cv2.imwrite(str(image_path), canvas, [cv2.IMWRITE_JPEG_QUALITY, 86]):
                     raise RuntimeError(f"Cannot write reference mosaic: {image_path}")
                 entries.append({
                     "id": tile_id,
