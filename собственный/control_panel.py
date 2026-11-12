@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, Slot
 from localization import display_name
+from marker_renderer import prepare_markers
 
 from PySide6.QtWidgets import (
     QCheckBox, QDialog, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
@@ -79,7 +80,8 @@ class ControlPanel(QDialog):
             return
 
         tile_id = detection["tile_id"]
-        markers = list(self.overlay.markers)
+        all_types = {str(m.get('type', 'Other')) for m in self.database.markers}
+        markers = prepare_markers(self.database.get_markers(), detection, set(), all_types)
         found = self.database.get_found_ids()
         shown = min(len(markers), 1000)
         suffix = f" · показаны первые {shown}" if len(markers) > shown else ""
