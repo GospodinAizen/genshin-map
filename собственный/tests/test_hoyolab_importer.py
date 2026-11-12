@@ -48,6 +48,16 @@ def test_import_skips_points_with_unknown_label_without_fabricating_category(tmp
     assert result["skipped_unknown_labels"] == 1
 
 
+def test_unknown_chinese_label_gets_russian_id_fallback(tmp_path):
+    source = tmp_path / "snapshot"
+    write_snapshot(source, labels=[{"id": 991, "name": "未收录的分类"}], points=[
+        {"id": 2, "labelId": 991, "x": 1, "y": 2}
+    ])
+    marker = import_snapshot(source)["markers"][0]
+    assert marker["name"] == "Категория HoYoLAB #991"
+    assert marker["source_name"] == "未收录的分类"
+
+
 def test_duplicate_label_ids_are_rejected():
     with pytest.raises(ValueError, match="Duplicate"):
         flatten_labels([
