@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from localization import display_name
+
 
 def _read_json(path: Path) -> Any:
     try:
@@ -35,8 +37,9 @@ def flatten_labels(nodes: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
             path = (*parents, name)
             result[label_id] = {
                 "id": label_id,
-                "name": name,
-                "path": list(path),
+                "name": display_name(name),
+                "source_name": name,
+                "path": [display_name(part) for part in path],
                 "icon": node.get("icon"),
             }
             children = node.get("children") or []
@@ -93,6 +96,7 @@ def import_snapshot(input_dir: str | Path, *, map_key: str | None = None) -> dic
             "map_id": map_id,
             "label_id": label_id,
             "name": label["name"],
+            "source_name": label.get("source_name", label["name"]),
             "category_path": label["path"],
             "icon": label["icon"],
             "coordinate_space": "hoyolab_map",
