@@ -19,6 +19,8 @@ class ReferenceTile:
     keypoints: list
     descriptors: np.ndarray
     neighbors: tuple[str, ...]
+    reference_origin: tuple[float, float]
+    reference_scale: float
 
 
 class ReferenceManager:
@@ -53,7 +55,9 @@ class ReferenceManager:
                 continue
             self.tiles[tile_id] = ReferenceTile(
                 tile_id, image_path, image.shape[1], image.shape[0],
-                keypoints, descriptors, tuple(str(v) for v in item.get("neighbors", []))
+                keypoints, descriptors, tuple(str(v) for v in item.get("neighbors", [])),
+                tuple(float(v) for v in item.get("reference_origin", (0, 0))),
+                float(item.get("reference_scale", 1.0)),
             )
             LOG.info("Indexed reference tile %s (%d ORB features)", tile_id, len(keypoints))
         if not self.tiles:
