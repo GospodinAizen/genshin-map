@@ -51,7 +51,7 @@ python hoyolab_updater.py
 python hoyolab_updater.py --force
 ```
 
-Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on Windows and ~/.cache/genshin-map-overlay/hoyolab/teyvat on Linux/macOS (or XDG_CACHE_HOME when set). Use --cache-dir to override. The installed folder contains upstream meta.json, labels.json, points.json, icons and tiles, plus markers.normalized.json, markers.runtime.json, references/manifest.json, multiscale reference mosaics, and upstream-release.json. The updater also requests the official Russian label locale and preserves the downloaded local icon files; if HoYoLAB does not provide Russian labels, it falls back to the source labels and the local translation table.
+Default cache locations are %LOCALAPPDATA%/genshin-map-overlay/hoyolab/teyvat on Windows and ~/.cache/genshin-map-overlay/hoyolab/teyvat on Linux/macOS (or XDG_CACHE_HOME when set). Use --cache-dir to override. The installed folder contains upstream meta.json, labels.json, points.json, icons and tiles, plus markers.normalized.json, markers.runtime.json, references/manifest.json, multiscale reference mosaics, and upstream-release.json. The updater requests the official Russian label locale and preserves local icon files. The API currently may return Chinese despite ru-ru; known labels are translated locally, and unknown Chinese labels are shown as Russian ID-based placeholders (their original text remains in source_name for diagnostics), so untranslated Chinese is not shown in the UI.
 
 Extraction rejects traversal paths, links and special files, enforces archive/member/expanded-size limits, checks archive size and release digest, validates the snapshot JSON through the importer, and swaps the new snapshot into place only after validation. Tests use local fixtures and do not access the network.
 
@@ -74,7 +74,7 @@ A minimap reference set is not interchangeable with a full-map tile set. It must
 
 ## Current status and limitations
 
-The HoYoLAB surface runtime is wired into `genshin.py`: it downloads the public Teyvat snapshot, builds references from all published zoom levels, attempts Russian labels, projects surface markers, and renders the official marker icons over a matched full map. It remains experimental: matching has not been validated on every UI scale, aspect ratio, monitor layout, or on the user's PC. Manual z-level filtering is available; separate underground floor imagery and automatic floor recognition, minimap projection, automatic map switching, and live validation remain unfinished.
+The HoYoLAB surface runtime is wired into `genshin.py`: it downloads the public Teyvat snapshot, builds references from all published zoom levels, attempts Russian labels, projects surface markers, and renders the official marker icons over a matched full map. It remains experimental: matching has not been validated on every UI scale, aspect ratio, monitor layout, or on the user's PC. Automatic surface selection and manual z-level filtering are available. The panel displays total exploration progress and the tracker reports why a screen was not matched. Separate underground floor imagery and automatic underground recognition, minimap projection, automatic map switching, and live validation remain unfinished.
 
 ## First user test (Windows)
 
