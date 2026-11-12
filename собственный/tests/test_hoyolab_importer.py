@@ -74,3 +74,24 @@ def test_duplicate_point_ids_are_rejected(tmp_path):
     ])
     with pytest.raises(ValueError, match="Duplicate"):
         import_snapshot(source)
+
+
+def test_import_preserves_marker_specific_description_and_name(tmp_path):
+    source = tmp_path / "snapshot"
+    write_snapshot(source, points=[
+        {"id": 8, "labelId": 11, "x": 1, "y": 2,
+         "name": "Hidden chest", "description": "Behind the waterfall."},
+    ])
+    marker = import_snapshot(source)["markers"][0]
+    assert marker["source_point_name"] == "Hidden chest"
+    assert marker["description"] == "Behind the waterfall."
+
+
+@pytest.mark.parametrize("coordinate", [float("inf"), float("-inf"), float("nan")])
+def test_import_rejects_non_finite_coordinates(tmp_path, coordinate):
+    source = tmp_path / "snapshot"
+    write_snapshot(source, points=[
+        {"id": 9, "labelId": 11, "x": coordinate, "y": 2},
+    ])
+    with pytest.raises(ValueError, match="Non-finite"):
+        import_snapshot(source)
