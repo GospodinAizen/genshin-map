@@ -116,7 +116,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
         entry["neighbors"] = neighbors
 
     manifest = {
-        "monitor_index": 1,
+        "monitor_index": "auto",
         "tiles": entries,
         "source": "HoYoLAB public interactive map",
         "source_map_id": meta["mapId"],
