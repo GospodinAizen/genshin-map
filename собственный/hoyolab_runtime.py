@@ -28,6 +28,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
     meta = json.loads((root / "meta.json").read_text(encoding="utf-8"))
     normalized = json.loads((root / "markers.normalized.json").read_text(encoding="utf-8"))
     origin = meta["origin"]
+    map_key = str(normalized.get("map", {}).get("id") or "teyvat_surface")
     total = meta["totalSize"]
     min_zoom = int(meta.get("minZoom", -4))
     max_zoom = int(meta.get("maxZoom", 0))
@@ -74,7 +75,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
                 expected = min(BLOCK_TILES, cols - bx * BLOCK_TILES) * min(BLOCK_TILES, rows - by * BLOCK_TILES)
                 if loaded < max(3, math.ceil(expected * 0.55)):
                     continue
-                tile_id = f"teyvat_z{zoom}_b{bx}_{by}"
+                tile_id = f"{map_key}_z{zoom}_b{bx}_{by}"
                 image_name = f"{tile_id}.jpg"
                 image_path = references / image_name
                 if not cv2.imwrite(str(image_path), canvas, [cv2.IMWRITE_JPEG_QUALITY, 86]):
@@ -110,7 +111,7 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
             for nx in range(max(0, bx - 1), bx + 2):
                 if nx == bx and ny == by:
                     continue
-                neighbor_id = f"teyvat_z{zoom}_b{nx}_{ny}"
+                neighbor_id = f"{map_key}_z{zoom}_b{nx}_{ny}"
                 if any(candidate["id"] == neighbor_id for candidate in entries):
                     neighbors.append(neighbor_id)
         entry["neighbors"] = neighbors
@@ -146,8 +147,8 @@ def build_runtime_assets(snapshot_dir: str | Path) -> dict:
             "y": map_y,
             "world_x": world_x,
             "world_y": world_y,
-            "tile_id": "teyvat_multiscale",
-            "map_id": "teyvat_surface",
+            "tile_id": f"{map_key}_multiscale",
+            "map_id": map_key,
             "floor_id": floor_id,
             "floor_label": "Поверхность" if floor_id == "surface" else f"Уровень {raw_z}",
             "source_point_id": marker.get("source_point_id"),
