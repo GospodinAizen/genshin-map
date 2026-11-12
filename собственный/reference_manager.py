@@ -73,5 +73,6 @@ class ReferenceManager:
             ordered.append(current_tile_id)
             ordered.extend(n for n in self.tiles[current_tile_id].neighbors
                            if n in self.tiles and n not in ordered)
-        ordered.extend(tile_id for tile_id in self.tiles if tile_id not in ordered)
+        if not ordered:
+            ordered.extend(self.tiles)
         return [self.tiles[tile_id] for tile_id in ordered]
