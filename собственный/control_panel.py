@@ -103,37 +103,6 @@ class ControlPanel(QDialog):
             self._loading = False
         return
 
-        tile_id = detection.get("tile_id", "default")
-        markers = [
-            m for m in self.database.get_markers()
-            if m.get("tile_id", "default") == tile_id
-        ]
-        found = self.database.get_found_ids()
-        self.status_label.setText(
-            f"Участок: {tile_id} · объектов: {len(markers)}"
-        )
-        if tile_id == self._tile_id and found == self._found_snapshot:
-            return
-
-        self._loading = True
-        try:
-            self.marker_list.clear()
-            for marker in markers:
-                item = QListWidgetItem(
-                    f'{marker["name"]}  [{marker["type"]}]'
-                )
-                item.setData(Qt.ItemDataRole.UserRole, marker["id"])
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(
-                    Qt.CheckState.Checked if marker["id"] in found
-                    else Qt.CheckState.Unchecked
-                )
-                self.marker_list.addItem(item)
-            self._tile_id = tile_id
-            self._found_snapshot = found
-        finally:
-            self._loading = False
-
     @Slot(QListWidgetItem)
     def _marker_changed(self, item):
         if self._loading:
