@@ -83,6 +83,7 @@ def main():
     panel = ControlPanel(database, overlay)
     overlay.hide()
     panel.show()
+    panel.update_detection(None)
 
     signals = HotkeySignals()
     thread = QThread()
