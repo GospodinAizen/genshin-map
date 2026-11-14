@@ -1,43 +1,134 @@
+"""Application entry point. All paths are resolved relative to this file."""
+from __future__ import annotations
+
+import os
 import sys
 
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from PySide6.QtWidgets import QApplication, QMessageBox
 
+from control_panel import ControlPanel
+from hotkeys import HotkeyListener
+from marker_database import MarkerDatabase
 from overlay import Overlay
 from screen_tracker import ScreenTracker
-from marker_database import MarkerDatabase
-from hotkeys import HotkeyListener
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MARKERS_PATH = os.path.join(BASE_DIR, "marker.json")
+REFERENCE_PATH = os.path.join(BASE_DIR, "data", "map_reference.png")
+
+
+class DetectionWorker(QObject):
+    detected = Signal(object)
+    failed = Signal(str)
+    finished = Signal()
+
+    def __init__(self, reference_path):
+        super().__init__()
+        self.reference_path = reference_path
+        self.tracker = None
+        self.timer = None
+
+    @Slot()
+    def start(self):
+        try:
+            self.tracker = ScreenTracker(self.reference_path)
+            self.timer = QTimer(self)
+            self.timer.timeout.connect(self._detect)
+            self.timer.start(500)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            self.finished.emit()
+
+    @Slot()
+    def _detect(self):
+        try:
+            self.detected.emit(self.tracker.detect())
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            if self.timer is not None:
+                self.timer.stop()
+            if self.tracker is not None:
+                self.tracker.close()
+                self.tracker = None
+            self.finished.emit()
+
+    @Slot()
+    def stop(self):
+        if self.timer is not None:
+            self.timer.stop()
+        if self.tracker is not None:
+            self.tracker.close()
+            self.tracker = None
+        self.finished.emit()
+
+
+class HotkeySignals(QObject):
+    toggle_overlay = Signal()
+    toggle_panel = Signal()
+    stop_worker = Signal()
 
 
 def main():
     app = QApplication(sys.argv)
+    app.setApplicationName("Genshin Map Overlay")
 
-    database = MarkerDatabase("data/markers.json")
-    tracker = ScreenTracker("data/map_reference.png")
+    try:
+        database = MarkerDatabase(MARKERS_PATH)
+    except (OSError, ValueError, TypeError) as exc:
+        QMessageBox.critical(None, "Ошибка базы меток", str(exc))
+        return 1
+
     overlay = Overlay(database)
+    panel = ControlPanel(database, overlay)
+    overlay.hide()
+    panel.show()
+    panel.update_detection(None)
 
-    timer = QTimer()
-    timer.timeout.connect(
-        lambda: overlay.update_markers(tracker.detect())
+    signals = HotkeySignals()
+    thread = QThread()
+    worker = None
+    if os.path.isfile(REFERENCE_PATH):
+        worker = DetectionWorker(REFERENCE_PATH)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.start)
+        signals.stop_worker.connect(worker.stop)
+        worker.detected.connect(overlay.update_detection)
+        worker.detected.connect(panel.update_detection)
+        worker.failed.connect(panel.show_error)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.start()
+    else:
+        panel.status_label.setText(
+            "База меток загружена. Нет data/map_reference.png — "
+            "распознавание экрана отключено."
+        )
+
+    signals.toggle_overlay.connect(overlay.toggle)
+    signals.toggle_panel.connect(panel.toggle)
+    hotkeys = HotkeyListener(
+        signals.toggle_overlay.emit, signals.toggle_panel.emit
     )
-    timer.start(300)
+    try:
+        hotkeys.start()
+    except Exception as exc:
+        panel.show_error(f"Не удалось включить глобальные клавиши: {exc}")
 
-    hotkeys = HotkeyListener(overlay.toggle)
-    hotkeys.start()
+    def shutdown():
+        hotkeys.stop()
+        if worker is not None and thread.isRunning():
+            signals.stop_worker.emit()
+            if not thread.wait(3000):
+                thread.quit()
+                thread.wait(1000)
+        overlay.close()
+        panel.close()
+        database.close()
 
-    overlay.show()
-
-    exit_code = app.exec()
-
-    hotkeys.stop()
-    sys.exit(exit_code)
+    app.aboutToQuit.connect(shutdown)
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
-
-
-
-
-
-
+    sys.exit(main())
