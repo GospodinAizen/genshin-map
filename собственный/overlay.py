@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QWidget, QApplication
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtGui import QPainter, QColor, QPen, QFont
 
 from marker_renderer import prepare_markers, marker_color
@@ -41,7 +41,7 @@ class Overlay(QWidget):
             self.enabled_categories.discard(category)
         self._refresh()
 
-    def update_detection(self, detection):
+    @Slot(object)\n    def update_detection(self, detection):
         self.detection = detection
         self._refresh()
 
