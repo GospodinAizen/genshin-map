@@ -62,11 +62,46 @@ class ControlPanel(QDialog):
     def update_detection(self, detection):
         self.detection = detection
         if detection is None:
-            self._tile_id = None
-            self._found_snapshot = self.database.get_found_ids()
-            self.status_label.setText("Карта не распознана")
-            self.marker_list.clear()
+            tile_id = "default"
+            markers = [
+                m for m in self.database.get_markers()
+                if m.get("tile_id", "default") == tile_id
+            ]
+            self.status_label.setText(
+                f"Распознавание недоступно · участок {tile_id} · "
+                f"объектов: {len(markers)}"
+            )
+        else:
+            tile_id = detection.get("tile_id", "default")
+            markers = [
+                m for m in self.database.get_markers()
+                if m.get("tile_id", "default") == tile_id
+            ]
+            self.status_label.setText(
+                f"Участок: {tile_id} · объектов: {len(markers)}"
+            )
+        found = self.database.get_found_ids()
+        if tile_id == self._tile_id and found == self._found_snapshot:
             return
+        self._loading = True
+        try:
+            self.marker_list.clear()
+            for marker in markers:
+                item = QListWidgetItem(
+                    f'{marker["name"]}  [{marker["type"]}]'
+                )
+                item.setData(Qt.ItemDataRole.UserRole, marker["id"])
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(
+                    Qt.CheckState.Checked if marker["id"] in found
+                    else Qt.CheckState.Unchecked
+                )
+                self.marker_list.addItem(item)
+            self._tile_id = tile_id
+            self._found_snapshot = found
+        finally:
+            self._loading = False
+        return
 
         tile_id = detection.get("tile_id", "default")
         markers = [
