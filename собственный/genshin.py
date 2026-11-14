@@ -48,6 +48,9 @@ class DetectionWorker(QObject):
             self.failed.emit(str(exc))
             if self.timer is not None:
                 self.timer.stop()
+            if self.tracker is not None:
+                self.tracker.close()
+                self.tracker = None
             self.finished.emit()
 
     @Slot()
@@ -63,6 +66,7 @@ class DetectionWorker(QObject):
 class HotkeySignals(QObject):
     toggle_overlay = Signal()
     toggle_panel = Signal()
+    stop_worker = Signal()
 
 
 def main():
@@ -80,16 +84,19 @@ def main():
     overlay.hide()
     panel.show()
 
+    signals = HotkeySignals()
     thread = QThread()
     worker = None
     if os.path.isfile(REFERENCE_PATH):
         worker = DetectionWorker(REFERENCE_PATH)
         worker.moveToThread(thread)
         thread.started.connect(worker.start)
+        signals.stop_worker.connect(worker.stop)
         worker.detected.connect(overlay.update_detection)
         worker.detected.connect(panel.update_detection)
         worker.failed.connect(panel.show_error)
         worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
         thread.start()
     else:
         panel.status_label.setText(
@@ -97,7 +104,6 @@ def main():
             "распознавание экрана отключено."
         )
 
-    signals = HotkeySignals()
     signals.toggle_overlay.connect(overlay.toggle)
     signals.toggle_panel.connect(panel.toggle)
     hotkeys = HotkeyListener(
@@ -111,9 +117,10 @@ def main():
     def shutdown():
         hotkeys.stop()
         if worker is not None and thread.isRunning():
-            worker.stop()
-            thread.quit()
-            thread.wait(3000)
+            signals.stop_worker.emit()
+            if not thread.wait(3000):
+                thread.quit()
+                thread.wait(1000)
         overlay.close()
         panel.close()
         database.close()
